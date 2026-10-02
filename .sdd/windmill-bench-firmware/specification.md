@@ -1,6 +1,6 @@
 # Specification: Windmill Bench Firmware
 
-**Version:** 1.4
+**Version:** 1.5
 **Date:** 2026-10-02
 **Status:** Approved
 **Author:** Pete Turner (with Claude)
@@ -109,7 +109,7 @@ In every statement, "the system" means the windmill firmware running on the ESP3
 - **Statement:** While the sails turn and all four lights show steady colours with no effect, the system shall show no visible flicker or colour change on any pixel for 60 minutes.
 
 **FR-41: Lights fade on and off**
-- **Statement:** When any of the four mill lights turns on or off, by the button or from HA without a requested transition time, the system shall fade its pixel to the new state, so that the pixel begins to change within 1 s of the operator's action and finishes the change within 4 s of it.
+- **Statement:** When any of the four mill lights turns on or off, by the button or from HA without a requested transition time or effect, the system shall fade its pixel to the new state, so that the pixel begins to change within 1 s of the operator's action and finishes the change within 4 s of it.
 
 ### Button and state reporting
 
@@ -405,3 +405,4 @@ In every statement, "the system" means the windmill firmware running on the ESP3
 | 1.2 | 2026-10-02 | Pete Turner (with Claude) | Applied second-round review fixes |
 | 1.3 | 2026-10-02 | Pete Turner (with Claude) | Applied third-round review fixes (AT-20, AT-03, AT-23, FR-41, FR-27) |
 | 1.4 | 2026-10-02 | Pete Turner (with Claude) | Power changed to USB-C into the C3 (spec.md updated); AT-07, AT-17, AT-19, AT-20, AT-21 and the out-of-scope voltage check reworded |
+| 1.5 | 2026-10-02 | Pete Turner (with Claude) | FR-41 excludes HA turn-ons that request an effect (the platform starts an effect without a fade); accepted by the user during design |
