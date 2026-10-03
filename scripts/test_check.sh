@@ -98,8 +98,8 @@ test_full_pass_with_stubs() {
     fail "check runs lint, config and compile" "exit status $status. Output: $output"
   elif [[ $calls != "$expected" ]]; then
     fail "check runs lint, config and compile" "calls were: $calls"
-  elif ! grep -qi "bench not included" <<< "$output"; then
-    fail "check runs lint, config and compile" "no 'bench not included' note. Output: $output"
+  elif grep -qi "bench" <<< "$output"; then
+    fail "check runs lint, config and compile" "output mentions the dropped bench option: $output"
   else
     pass "check runs lint, config and compile"
   fi

@@ -21,11 +21,6 @@ if [[ -n $(git ls-files --cached -- secrets.yaml) ]]; then
   fail "secrets.yaml is staged in git. Unstage it: git rm --cached secrets.yaml"
 fi
 
-bench_lines=$(grep -c 'packages/mill_bench.yaml' windmill.yaml || true)
-if [[ $bench_lines -eq 0 ]]; then
-  echo "check: bench not included"
-fi
-
 echo "check: yamllint -s ."
 yamllint -s .
 echo "check: esphome config windmill.yaml"
