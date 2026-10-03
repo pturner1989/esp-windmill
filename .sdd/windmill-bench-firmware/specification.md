@@ -1,8 +1,8 @@
 # Specification: Windmill Bench Firmware
 
-**Version:** 1.9
+**Version:** 1.10
 **Date:** 2026-10-03
-**Status:** Approved
+**Status:** Implemented
 **Author:** Pete Turner (with Claude)
 
 ---
@@ -390,3 +390,4 @@ In every statement, "the system" means the windmill firmware running on the ESP3
 | 1.7 | 2026-10-03 | Pete Turner (with Claude) | Pixel order changed for wiring (0 door lamp, 1 door glow, 2 stone floor window, 3 bin floor window); pixels found to be RGBW at the bench |
 | 1.8 | 2026-10-03 | Pete Turner (with Claude) | Scope reduced by the user: no bench option. Deferred and removed: FR-29, FR-33, FR-38, NFR-03, AT-22, AT-23, AT-27, AT-29 (listed in Explicitly Out of Scope). "Reverse Rotation" is now a permanent production switch: FR-30, FR-31, FR-32 and AT-02 rewritten, FR-42 added, FR-20 and AT-19 include it. FR-14 keeps its firmware half. FR-34 and AT-24 cover one configuration (three runs) |
 | 1.9 | 2026-10-03 | Pete Turner (with Claude) | User request 2026-10-03: a long press (1–5 s, on release) reverses the sails while they turn, through "Reverse Rotation". FR-40 rewritten; FR-43 (long press while stopped does nothing) and FR-44 (other presses do nothing) added; FR-17, FR-27 and FR-32 updated; AT-16 and AT-21 test the long press; "Mill Button", "Short press" and "Long press" glossary entries updated; the out-of-scope line about the long press reworded |
+| 1.10 | 2026-10-03 | Pete Turner (with Claude) | Status set to Implemented; feature closed by the operator. Unreported bench checks are recorded as accepted in bench-log.md |
