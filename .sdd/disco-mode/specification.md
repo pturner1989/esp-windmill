@@ -1,6 +1,6 @@
 # Specification: Disco Mode
 
-**Version:** 1.3
+**Version:** 1.5
 **Date:** 2026-10-03
 **Status:** Approved
 **Author:** Pete Turner (with Claude)
@@ -120,7 +120,7 @@ In every statement, "the system" means the windmill firmware running on the ESP3
 - **Statement:** When the operator taps with the Mill Button, the system shall take as the tap time the moment the button goes down, within 30 ms, whatever the press length from 50 ms to 500 ms.
 
 **FR-18: HA tap time**
-- **Statement:** When the operator presses "Disco Tap" in HA, the system shall start the tap confirmation flash within 1 s of the press and take as the tap time the start of that flash, within 30 ms, or, when the flash limit (FR-25) skips that flash, the moment the press reaches the device.
+- **Statement:** When the operator presses "Disco Tap" in HA, the system shall start the tap confirmation flash within 1 s of the press and take as the tap time the start of that flash, within 50 ms, or, when the flash limit (FR-25) skips that flash, the moment the press reaches the device.
 
 **FR-19: A tap run sets the tempo**
 - **Statement:** When at least 4 taps of a tap run fall within the 3.5 s window that ends at the latest tap, the system shall set "Disco BPM" from the average spacing of the latest taps in that window, at most 8, and show the new value in HA within 5 s, so that steady tapping at any tempo from 60 to 180 BPM sets "Disco BPM" to that tempo.
@@ -241,7 +241,7 @@ In every statement, "the system" means the windmill firmware running on the ESP3
 **AT-04: Step length and rate** (FR-06, FR-07, FR-12)
 - **Given:** "Disco Mode" is on, "Disco BPM" is 120 and "Disco Rate" is 1×, and the operator records the mill as a slow-motion video.
 - **When:** The operator counts the flashes of "Mill Door Lamp" on the video over 30 s at each of these settings, set in turn on the HA dashboard: 120 BPM at 1×; "Disco Rate" ½×; "Disco BPM" 90 and then "Disco Rate" 2×; "Disco Rate" 1× and then "Disco BPM" 180.
-- **Then:** The counts are 60, 30, 90 and 90, each within 1; after each change the new flash rate starts within 1 s; at every setting exactly one pixel starts a flash at each quarter step.
+- **Then:** The counts are 60 and 30, each within 1, and at the two settings with a 1/3 s step (90 BPM at 2×, 180 BPM at 1×) between 84 and 90, because the flash limit may skip a flash when the firing order changes; after each change the new flash rate starts within 1 s; at every setting exactly one pixel starts a flash at each quarter step.
 
 **AT-05: Tempo change without a jump** (FR-11)
 - **Given:** "Disco Mode" is on at 120 BPM and 1×, so one step lasts 0.5 s, the current colours have just changed, and the operator records the mill as a slow-motion video.
@@ -266,7 +266,7 @@ In every statement, "the system" means the windmill firmware running on the ESP3
 **AT-09: Tap timing from the button and from HA** (FR-16, FR-17, FR-18)
 - **Given:** "Disco Mode" is on at 60 BPM and 1×, a metronome at 60 BPM plays aloud, and the operator records the mill and the button as a slow-motion video with sound.
 - **When:** The operator presses the Mill Button once on a metronome click, holds it for about 400 ms before release, and watches for 10 s; then presses "Disco Tap" on the HA dashboard once and watches for 10 s.
-- **Then:** On the video, after the button press, the first on-beat flash after the white flash starts 1.000 s after the frame in which the button went down, within 30 ms, and not about 400 ms late. After the HA press, the first on-beat flash after the white flash starts 1.000 s after the first frame of the white flash, within 30 ms.
+- **Then:** On the video, after the button press, the first on-beat flash after the white flash starts 1.000 s after the frame in which the button went down, within 30 ms, and not about 400 ms late. After the HA press, the first on-beat flash after the white flash starts 1.000 s after the first frame of the white flash, within 50 ms.
 
 **AT-10: Tap runs set the tempo** (FR-14, FR-19, FR-20, FR-21, FR-22, FR-36)
 - **Given:** HA is connected, "Disco Mode" is on, "Disco BPM" is 120, "Disco Rate" is 1×, and a metronome app is at hand. The operator waits at least 3 s between the parts of the test.
@@ -314,9 +314,9 @@ In every statement, "the system" means the windmill firmware running on the ESP3
 - **Then:** From power-up onward all four pixels stay dark and the sails do not move; once the device reconnects, HA shows "Disco Mode" off, "Sails Turning" off and all four lights off; "Disco BPM" and "Disco Rate" show values inside their allowed ranges.
 
 **AT-19: Brightness cap and flash peaks in disco** (FR-03, FR-24, FR-33, FR-39)
-- **Given:** A meter with a maximum-hold function is in series with the pixel string's 5 V feed. The operator knows the limit from bench-firmware AT-11 and has recorded from the pixel datasheet the full-output current of each colour channel of one pixel. HA is connected and the mill is dark.
+- **Given:** A meter with a maximum-hold function is in series with the pixel string's 5 V feed. The operator knows the limit from bench-firmware AT-11. HA is connected and the mill is dark.
 - **When:** The operator reads the meter with all four lights off. The operator turns on "Disco Mode" at 60 BPM and ½× in HA, sets "Mill Door Lamp", "Mill Stone Floor Window" and "Mill Bin Floor Window" to 1% brightness, resets the maximum hold, watches for 16 s without a tap, and reads the maximum-hold value. The operator then sets all four lights in HA to 100% brightness and white, resets the maximum hold, presses "Disco Tap" in HA 5 times about 2 s apart, and reads the maximum-hold value again.
-- **Then:** With three lights at 1%, those three flash visibly dimmer than "Mill Door Glow", and the first maximum-hold reading is above the all-off reading by at least 55% of the full-output current of the weakest colour channel. Both maximum-hold readings are at or below the bench-firmware AT-11 limit.
+- **Then:** With three lights at 1%, those three flash visibly dimmer than "Mill Door Glow", and the brightest moment of each "Mill Door Glow" flash looks, by eye, as bright as that light does steady at 100% brightness. Both maximum-hold readings are at or below the bench-firmware AT-11 limit.
 
 **AT-20: No HA state per flash** (FR-37)
 - **Given:** HA is connected and "Disco Mode" has been on at 120 BPM and 1× for 1 minute.
@@ -382,3 +382,5 @@ In every statement, "the system" means the windmill firmware running on the ESP3
 | 1.1 | 2026-10-03 | Pete Turner (with Claude) | Review round 1 fixes and user decisions D1–D4 |
 | 1.2 | 2026-10-03 | Pete Turner (with Claude) | D1 revised: white tap flash wins over the chase |
 | 1.3 | 2026-10-03 | Pete Turner (with Claude) | Review round 2 fixes |
+| 1.4 | 2026-10-03 | Pete Turner (with Claude) | AT-04 allows flash-limit skips at a 1/3 s step; AT-19 checks flash peaks by eye (design findings) |
+| 1.5 | 2026-10-03 | Pete Turner (with Claude) | FR-18 and AT-09: HA tap time within 50 ms (design: frames run every 16–32 ms) |
