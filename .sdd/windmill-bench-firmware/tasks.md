@@ -22,7 +22,7 @@ The reviewer can set up the pinned tools, copy the placeholder secrets and run o
 **AC-2:**
 - **Given:** The example secrets file copied to the secrets file, with no real credential present
 - **When:** The reviewer runs the check script
-- **Then:** The YAML lint, the config validation and the compile all pass, the script notes that the bench option is not included, and it exits 0
+- **Then:** The YAML lint, the config validation and the compile all pass, and the script exits 0
 
 **AC-3:**
 - **Given:** The tools are installed and the secrets file is missing
@@ -71,7 +71,7 @@ The reviewer can set up the pinned tools, copy the placeholder secrets and run o
 
 **Notes:**
 
-AC-1 to AC-7 are agent-checkable, and the reviewer unstages the secrets file straight after the staged-file test in AC-4, so it never reaches a commit; AC-8 to AC-11 need the operator at the bench with only the C3 wired. The first compile downloads the ESP-IDF toolchain (several GB, several minutes), so allow for that before judging the check script slow or broken; the repository is already a git repository on branch `feature/windmill-bench-firmware`, so the handbook's `git init` step is already done. A real API key for the operator's own secrets file is a fresh 32-byte base64 value, and the README says how to make one. After AC-11 the device keeps the network entered on the fallback page across network updates until a flash erase, so the operator re-enters the configured network on the fallback page, or notes that the full flash erase in Task 3 clears it. The WiFi and API reboot timeouts stay at their defaults here, because Task 8 changes them and proves the change with the mill running; this task contributes to AT-18, AT-19, AT-20, AT-21, AT-24 (bench-free runs), AT-25 and AT-26 (FR-24, FR-25, FR-26, FR-27, FR-28, FR-34, FR-35, FR-36, FR-37, NFR-02).
+AC-1 to AC-7 are agent-checkable, and the reviewer unstages the secrets file straight after the staged-file test in AC-4, so it never reaches a commit; AC-8 to AC-11 need the operator at the bench with only the C3 wired. The first compile downloads the ESP-IDF toolchain (several GB, several minutes), so allow for that before judging the check script slow or broken; the repository is already a git repository on branch `feature/windmill-bench-firmware`, so the handbook's `git init` step is already done. A real API key for the operator's own secrets file is a fresh 32-byte base64 value, and the README says how to make one. After AC-11 the device keeps the network entered on the fallback page across network updates until a flash erase, so the operator re-enters the configured network on the fallback page, or notes that the full flash erase in Task 3 clears it. The WiFi and API reboot timeouts stay at their defaults here, because Task 8 changes them and proves the change with the mill running; this task contributes to AT-18, AT-19, AT-20, AT-21, AT-24, AT-25 and AT-26 (FR-24, FR-25, FR-26, FR-27, FR-28, FR-34, FR-35, FR-36, FR-37, NFR-02).
 
 ### Task 2: Sails turn and stop from HA, and boot stopped
 
@@ -191,7 +191,7 @@ While "Sails Turning" is on, the firmware re-runs the re-arm every 10 minutes: i
 
 **Notes:**
 
-AC-1 is agent-checkable; AC-2 and AC-3 need the operator with the motor wired. The agent-checkable AC-1 proves the interval exists; AC-2 and AC-3 show nothing got worse. The ULN2003 takes its coil phase from its own counter, so the re-base changes no coil output, and the script runs in one main-loop callback, so the stepper cannot step between the two calls. Without this task, the turn-on re-arm alone would stop the sails after about 8.7 h at 320 steps/s, which a bench session cannot show; AC-3 instead proves several re-arms in a row. This task contributes to FR-01 and to the sails half of AT-29, which runs in Task 12.
+AC-1 is agent-checkable; AC-2 and AC-3 need the operator with the motor wired. The agent-checkable AC-1 proves the interval exists; AC-2 and AC-3 show nothing got worse. The ULN2003 takes its coil phase from its own counter, so the re-base changes no coil output, and the script runs in one main-loop callback, so the stepper cannot step between the two calls. Without this task, the turn-on re-arm alone would stop the sails after about 8.7 h at 320 steps/s, which a bench session cannot show; AC-3 instead proves several re-arms in a row. This task contributes to FR-01; the one-hour run in Task 12 that would have repeated this proof over a full hour is descoped.
 
 ### Task 5: Four capped lights with fades, dark at boot
 
@@ -236,7 +236,7 @@ HA shows four lights, "Mill Door Lamp" (pixel 0), "Mill Door Glow" (1), "Mill St
 
 **Notes:**
 
-AC-1 and AC-2 are agent-checkable; AC-3 to AC-6 need the operator after the four pixels are wired to GPIO6 through the 330R with the data-level fix, and AC-5 also needs the motor wired as in Task 2. AC-3 first answers whether the pixels are RGB or RGBW: if the colours are wrong because they are RGBW, only the lights package changes (`channel_colors: GRBW` alone, with no RGBW flag, and four correction values on the strip and every light), and the AT-11 limit is recomputed from the datasheet. Steady lights with no effect send no frames, which is the firmware half of FR-14. This task contributes AT-08, AT-17 (completed here), AT-28 and the first two readings of AT-11 (FR-10, FR-13, FR-14, FR-18, FR-20, FR-39, FR-41, NFR-01); the lights package starts with a comment that lists its substitutions and ids.
+AC-1 and AC-2 are agent-checkable; AC-3 to AC-6 need the operator after the four pixels are wired to GPIO6 through the 330R with the data-level fix, and AC-5 also needs the motor wired as in Task 2. AC-3 first answers whether the pixels are RGB or RGBW: if the colours are wrong because they are RGBW, only the lights package changes (`channel_colors: GRBW` alone, with no RGBW flag, and four correction values on the strip and every light), and the AT-11 limit is recomputed from the datasheet. Steady lights with no effect send no frames, which is FR-14 as spec v1.8 states it. This task contributes AT-08, AT-17 (completed here), AT-28 and the first two readings of AT-11 (FR-10, FR-13, FR-14, FR-18, FR-20, FR-39, FR-41, NFR-01); the lights package starts with a comment that lists its substitutions and ids.
 
 ### Task 6: Lamplight on the interior lights, steady door lamp
 
@@ -266,7 +266,7 @@ The three interior lights each offer a "Lamplight" flicker effect that imitates 
 
 **Notes:**
 
-AC-1 is agent-checkable; AC-2 and AC-3 need the operator with the pixels wired. An HA turn-on that requests Lamplight starts with no fade, which FR-41 (spec v1.5) allows, and the interval and intensity are Phase 4 starting values. The one-hour run with the capacitors fitted (AT-29) is Task 12, so this task and the tasks after it do not wait for those parts. This task contributes AT-09 and AT-10 (FR-11, FR-12, NFR-01).
+AC-1 is agent-checkable; AC-2 and AC-3 need the operator with the pixels wired. An HA turn-on that requests Lamplight starts with no fade, which FR-41 (spec v1.5) allows, and the interval and intensity are Phase 4 starting values. The one-hour run with the capacitors fitted was Task 12, which is descoped, so no task waits for those parts. This task contributes AT-09 and AT-10 (FR-11, FR-12, NFR-01).
 
 ### Task 7: Button turns the whole mill on and off
 
@@ -321,7 +321,7 @@ A short press of the Mill Button (50–500 ms) toggles the whole mill. If the sa
 
 **Notes:**
 
-AC-1 and AC-2 are agent-checkable; AC-3 to AC-8 need the operator after the button is wired from GPIO5 to ground. For AC-6 on laptop power, the operator uses a USB port that supplies 900 mA or more, or a powered hub, so the C3 does not brown out when the mill turns on. The mill-on look is a Phase 4 starting value (RGB inputs 100/76/52 in percent, which give about 255/120/40 at the LED after gamma 2.8; 100/47/16 looked pink-red at the bench); the lights fade without an effect first, because ESPHome skips the default transition when a call sets an effect, and Lamplight starts after 3 s only on interior lights that are still on. The scripts never touch the reverse control, which Task 9 checks from the operator side. This task contributes AT-12, AT-13, AT-16, AT-21 (completed here), the third reading of AT-11 and the entity list of AT-19 (FR-02, FR-13, FR-15, FR-16, FR-17, FR-18, FR-19, FR-27, FR-40, FR-41, NFR-01).
+AC-1 and AC-2 are agent-checkable; AC-3 to AC-8 need the operator after the button is wired from GPIO5 to ground. For AC-6 on laptop power, the operator uses a USB port that supplies 900 mA or more, or a powered hub, so the C3 does not brown out when the mill turns on. The mill-on look is a Phase 4 starting value (RGB inputs 100/76/52 in percent, which give about 255/120/40 at the LED after gamma 2.8; 100/47/16 looked pink-red at the bench); the lights fade without an effect first, because ESPHome skips the default transition when a call sets an effect, and Lamplight starts after 3 s only on interior lights that are still on. The scripts never touch "Reverse Rotation", which Task 9 checks from the operator side. This task contributes AT-12, AT-13, AT-16, AT-21 (completed here), the third reading of AT-11 and the entity list of AT-19 (FR-02, FR-13, FR-15, FR-16, FR-17, FR-18, FR-19, FR-27, FR-40, FR-41, NFR-01).
 
 ### Task 8: Mill keeps its state through network loss
 
@@ -358,54 +358,34 @@ The node no longer restarts itself when WiFi or HA is gone. The sails and lights
 
 AC-1 is agent-checkable; AC-2 to AC-4 need the operator, who must be able to switch off the WiFi access point and stop HA for 20 minutes. Network resilience is its own task, not part of Task 1, because its proof needs the button and a running mill: with the default 15-minute reboot timeout, AC-2 would fail at about minute 15 when the device restarts dark. ESPHome keeps retrying the configured network while the fallback access point is up, which AC-2 confirms. This task contributes AT-14, AT-15 and AT-20 (completed here) (FR-17, FR-20, FR-21, FR-22, FR-23).
 
-### Task 9: Bench option with reverse rotation
+### Task 9: Permanent Reverse Rotation switch
 
 - **Status:** Done in reshaped form: permanent Reverse Rotation switch, no bench package (user decision 2026-10-03); operator check pending
 - **Blocked by:** Task 8
 
 **What to build:**
 
-The node file gains one line that includes the bench package, and the bench package gives HA a "Reverse Rotation" switch that boots off. While it is on, the sails turn in reverse whenever they turn. Turning it on or off while the sails turn changes direction at once through the re-arm, with no stop and no change to "Sails Turning". The button and the mill scripts never change the reverse control. The check script now checks both configurations: it writes a derived copy of the node file without the bench line, runs lint, validation and compile on that copy first and on the full config last, deletes the copy on exit, and fails if more than one line names the bench package. The derived copy is git-ignored, and the README warns that an upload sends the last build, so the operator compiles the wanted config before an upload.
+The sails package gains a "Reverse Rotation" switch in HA and a direction global, `mill_sails_reverse`. Both are permanent production parts; there is no bench package. The switch is optimistic and boots off, and the global does not restore, so the sails start forward after every restart. While the switch is on, the sails turn in reverse whenever they turn. Turning it on or off while the sails turn re-arms them at once in the new direction, with no stop and no change to "Sails Turning". Turning it on or off while the sails are stopped only sets the direction for the next start. The re-arm target multiplies the forward-direction substitution by the reverse sign. The button and the mill scripts never change the direction. The README gains a "Sail direction" section.
 
 **Acceptance criteria:**
 
 **AC-1:**
-- **Given:** A fresh clone at this task's commit, a venv built from the pinned requirements, and the example secrets copied to the secrets file, with the bench line in the node file
-- **When:** The reviewer runs the check script and reads the bench and sails packages
-- **Then:** Six runs pass (lint, validation and compile, without and then with the bench option), the script exits 0, and no derived copy remains afterwards; "Reverse Rotation" has restore mode ALWAYS_OFF, and the direction setting does not restore (NFR-02)
+- **Given:** The example secrets in place
+- **When:** The reviewer runs the check script and reads the sails and controls packages
+- **Then:** All three runs pass; the global `mill_sails_reverse` is a bool that starts false and does not restore; "Reverse Rotation" (`mill_sails_reverse_switch`) is optimistic with restore mode ALWAYS_OFF, sets the global on turn-on and turn-off, and runs the re-arm script only while "Sails Turning" is on; the re-arm target is the forward-direction substitution times the reverse sign times 10,000,000; nothing other than this switch changes the global or the switch; and the controls package names neither id
 
 **AC-2:**
-- **Given:** A second line in the node file names the bench package
-- **When:** The reviewer runs the check script
-- **Then:** The script exits non-zero with a message about the bench line and runs no ESPHome command
-
-**AC-3:**
-- **Given:** The repository
-- **When:** The reviewer asks git whether the derived copy is ignored, and searches every package other than the bench package for the bench ids
-- **Then:** Git reports the derived copy as ignored, and no other package names a bench id
-
-**AC-4:**
-- **Given:** The motor is wired, Sail Speed is 170, the sails are stopped and "Reverse Rotation" is off
-- **When:** The operator turns on "Reverse Rotation", turns on "Sails Turning", watches for one minute and times three turns; then while turning turns "Reverse Rotation" off and watches 30 s, turns it on and watches 30 s, and turns off "Sails Turning"
-- **Then:** With reverse on the mark turns steadily clockwise, three turns take 34.3 s to 38.0 s, and HA shows "Sails Turning" on; reverse off changes the mark to anticlockwise without a stop and "Sails Turning" stays on; reverse on changes it back to clockwise; the mark stops within 1 s of "Sails Turning" going off
-
-**AC-5:**
-- **Given:** The sails are stopped and "Reverse Rotation" is on
-- **When:** The operator turns on "Sails Turning" and then short-presses the button
-- **Then:** The mark stops within 1 s of release, HA shows "Sails Turning" off within 5 s, and "Reverse Rotation" stays on
-
-**AC-6:**
-- **Given:** "Reverse Rotation" is off and the sails are stopped
-- **When:** The operator turns on "Sails Turning" and watches for one minute
-- **Then:** The mark turns anticlockwise, as in Task 2
+- **Given:** The motor and button are wired, Sail Speed is 170, the sails are stopped, "Reverse Rotation" is off, and the device is powered from its USB charger
+- **When:** The operator turns on "Reverse Rotation" and watches 5 s; turns on "Sails Turning", watches for one minute and times three turns; then while turning turns "Reverse Rotation" off and watches 30 s, turns it on and watches 30 s, and turns off "Sails Turning"; turns on "Sails Turning" again with "Reverse Rotation" still on and short-presses the button; then, with "Reverse Rotation" still on, unplugs the charger for 10 s, plugs it back in, waits for HA to show the device connected and turns on "Sails Turning"
+- **Then:** Turning on "Reverse Rotation" while stopped does not move the mark and "Sails Turning" stays off; with reverse on the mark turns steadily clockwise, three turns take 34.3 s to 38.0 s, and HA shows "Sails Turning" on; reverse off changes the mark to anticlockwise without a stop and "Sails Turning" stays on; reverse on changes it back to clockwise; the mark stops within 1 s of "Sails Turning" going off; after the button press the mark stops within 1 s of release, HA shows "Sails Turning" off within 5 s, and "Reverse Rotation" stays on; after the restart HA shows "Reverse Rotation" off and the mark turns anticlockwise
 
 **Notes:**
 
-AC-1 to AC-3 are agent-checkable; AC-4 to AC-6 need the operator with the motor and button wired. The direction global lives in the sails package with no restore, and the re-arm multiplies the forward-direction substitution by its sign, so a reverse is the same re-arm with the opposite sign. The derived copy sits at the repository root so relative includes still resolve, and it keeps the node name, so both builds share one build directory that ends with the bench build. Both configurations share one node block, so HA sees one device and updates work in both directions. This task contributes AT-02, AT-24 (completed here) and an AT-01 repeat (FR-03, FR-15, FR-30, FR-31, FR-32, FR-33, FR-34, NFR-02, NFR-03).
+AC-1 is agent-checkable; AC-2 needs the operator with the motor and button wired. The direction global lives in the sails package with no restore, and a reverse is the same re-arm with the opposite sign, so the coil phase does not jump. The user reshaped this task on 2026-10-03: the bench package, its include line and the six-run check script are deferred, and the check script runs lint, validation and compile on the one configuration. The device page in HA now also shows "Reverse Rotation", which completes the entity list of AT-19. This task contributes AT-02, AT-24 (completed here, on the one configuration), the AT-19 entity list and an AT-01 repeat (FR-03, FR-15, FR-20, FR-30, FR-31, FR-32, FR-34, FR-42, NFR-02).
 
 ### Task 10: Pixel addressing test and the production build
 
-- **Status:** Backlog
+- **Status:** Descoped (user decision 2026-10-03)
 - **Blocked by:** Task 9
 
 **What to build:**
@@ -436,11 +416,11 @@ The bench package gains a "Pixel Addressing Test" button in HA. A press turns of
 
 **Notes:**
 
-AC-1 is agent-checkable; AC-2 to AC-4 need the operator with the pixels wired, and AC-4 also needs the reviewer to make the one-line change. During the test, HA shows each light on for its 1.5 s step, which is its real state; the "shows as off" check applies to the first step. The bench line goes back after AC-4, so the device and the repository keep the bench build for Task 12 and later bench work. The colour check is the spec's nice-to-have confirmation of pixel colour order. This task contributes AT-22 and AT-23 (FR-29, FR-33, NFR-01, NFR-03).
+AC-1 is agent-checkable; AC-2 to AC-4 need the operator with the pixels wired, and AC-4 also needs the reviewer to make the one-line change. During the test, HA shows each light on for its 1.5 s step, which is its real state; the "shows as off" check applies to the first step. The bench line goes back after AC-4, so the device and the repository keep the bench build for Task 12 and later bench work. The colour check is the spec's nice-to-have confirmation of pixel colour order. This task contributes AT-22 and AT-23 (FR-29, FR-33, NFR-01, NFR-03). Descoped: the user deferred the bench package, the pixel addressing test and the production check without test controls (old FR-29, FR-33, NFR-03, AT-22, AT-23) on 2026-10-03.
 
 ### Task 11: spec.md and the handbook match the firmware
 
-- **Status:** Backlog
+- **Status:** Descoped (user decision 2026-10-03)
 - **Blocked by:** Task 8, Task 10
 
 **What to build:**
@@ -481,11 +461,11 @@ The "ESPHome configuration" section of the build spec loses its configuration li
 
 **Notes:**
 
-All ACs are agent-checkable (the README's device commands were exercised in Task 1 AC-8 to AC-10, Task 7 AC-6 and Task 10 AC-4); no device behaviour changes. The handbook says to update `spec.md` in the same change when the user agrees a divergence, and the user agreed these divergences in the approved spec and design, so this task closes them. The `mill_lights` name stays valid as a package file name; only its use as a light id must go. Keep the `spec.md` heading so links to it still work. This task contributes AT-27 (FR-38), completes the README for FR-39, and repeats the package checks of Task 2 and AT-25 over the final tree (FR-35, FR-36, NFR-02).
+All ACs are agent-checkable (the README's device commands were exercised in Task 1 AC-8 to AC-10, Task 7 AC-6 and Task 10 AC-4); no device behaviour changes. The handbook says to update `spec.md` in the same change when the user agrees a divergence, and the user agreed these divergences in the approved spec and design, so this task closes them. The `mill_lights` name stays valid as a package file name; only its use as a light id must go. Keep the `spec.md` heading so links to it still work. This task contributes AT-27 (FR-38), completes the README for FR-39, and repeats the package checks of Task 2 and AT-25 over the final tree (FR-35, FR-36, NFR-02). Descoped: the user deferred the `spec.md` pointer to the firmware files and the handbook sync (old FR-38, AT-27) on 2026-10-03, so `spec.md` still holds the old draft configuration listing.
 
 ### Task 12: One-hour run with motor and pixels together
 
-- **Status:** Backlog
+- **Status:** Descoped (user decision 2026-10-03)
 - **Blocked by:** Task 6, Task 11
 
 **What to build:**
@@ -501,4 +481,4 @@ The operator fits the 470 µF capacitor at the stepper driver and runs the finis
 
 **Notes:**
 
-AC-1 needs the operator and the 470 µF capacitor, which the operator does not own yet, so this is the only operator-gated task left open until the parts arrive; no other task depends on it. Steady lights with no effect send no frames, so the design expects any flicker in this run to come from the hardware: the capacitors, the 330R resistor and the routing. If a run flickers, the operator first fits the pixel-entry capacitor and repeats; if flicker remains after the hardware fixes (separation, 330R, capacitors), the first firmware fix is to raise the RMT symbol count on the strip, which on the C3 defaults to exactly one 4-pixel frame; the check script must pass again, and the build spec notes and handbook must be re-checked, before the operator repeats the run. The hour also covers at least five re-arms in a row at 170 steps/s, which completes the sails half of AT-29 from Task 4. This task contributes AT-29 (FR-01, FR-14).
+AC-1 needs the operator and the 470 µF capacitor, which the operator does not own yet, so this is the only operator-gated task left open until the parts arrive; no other task depends on it. Steady lights with no effect send no frames, so the design expects any flicker in this run to come from the hardware: the capacitors, the 330R resistor and the routing. If a run flickers, the operator first fits the pixel-entry capacitor and repeats; if flicker remains after the hardware fixes (separation, 330R, capacitors), the first firmware fix is to raise the RMT symbol count on the strip, which on the C3 defaults to exactly one 4-pixel frame; the check script must pass again, and the build spec notes and handbook must be re-checked, before the operator repeats the run. The hour also covers at least five re-arms in a row at 170 steps/s, which completes the sails half of AT-29 from Task 4. This task contributes AT-29 (FR-01, FR-14). Descoped: the user deferred the one-hour run with the capacitors fitted (old AT-29, the bench proof of FR-14) on 2026-10-03; the firmware half of FR-14, steady lights send no frames, is delivered in Task 5.

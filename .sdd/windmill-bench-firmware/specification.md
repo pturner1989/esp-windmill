@@ -1,7 +1,7 @@
 # Specification: Windmill Bench Firmware
 
-**Version:** 1.7
-**Date:** 2026-10-02
+**Version:** 1.8
+**Date:** 2026-10-03
 **Status:** Approved
 **Author:** Pete Turner (with Claude)
 
@@ -30,14 +30,12 @@ The motorised windmill needs its own firmware on the ESP32-C3 before any part of
 - The button turns the whole mill on and off, with or without WiFi and HA.
 - After any reset or power cut, the mill is dark and still until someone asks for something.
 - No pixel ever exceeds 60% of its full output, whatever HA requests.
-- Every item in `spec.md` "Phase 1, electronics on the bench" that depends on the firmware and that a breadboard can test passes.
-- Bench-only test controls exist during bench work and disappear from HA with one change.
+- The operator can reverse the sails from HA at any time, and the sails start forward after every restart.
+- Every item in `spec.md` "Phase 1, electronics on the bench" that depends on the firmware and that a breadboard can test passes, except the pixel addressing check and the one-hour run, which the user deferred on 2026-10-03.
 - The reviewer can lint, validate and compile the firmware with placeholder secrets, and no real credential reaches the repository.
-- `spec.md` points to the firmware files in the repository, so there is one source of truth for the configuration.
 
 **Nice-to-haves**
 - The speed sweep record gives the operator a measured highest safe speed to use in Phase 4 tuning.
-- The pixel addressing test also confirms the pixel colour order, so the colours shown match the colours requested.
 
 ---
 
@@ -55,6 +53,12 @@ The motorised windmill needs its own firmware on the ESP32-C3 before any part of
 - Lighting the sails or adding a fifth pixel.
 - Hardware choices that do not change firmware behaviour: the level shifter versus diode drop, the 330R data resistor, and capacitor values.
 - The 5V rail voltage check (the rail stays above 4.5V with the stepper and pixels running). It stays a Phase 1 item in `spec.md`, done with a multimeter, outside this firmware spec.
+- Deferred by the user on 2026-10-03: a bench option, that is, a separate bench package with test-only controls that one line includes, and the rule that one change removes it (old NFR-03). "Reverse Rotation" is a permanent production control instead (FR-30).
+- Deferred by the user on 2026-10-03: the pixel addressing test, which lights each pixel alone in the order 0, 1, 2, 3 and checks the colour order (old FR-29, AT-22).
+- Deferred by the user on 2026-10-03: the check that a build without the bench option offers no test controls in HA (old FR-33, AT-23).
+- Deferred by the user on 2026-10-03: the repository checks with and without the bench option (six runs). FR-34 and AT-24 cover the single production configuration (three runs).
+- Deferred by the user on 2026-10-03: the pointer in `spec.md` to the firmware files and the handbook update (old FR-38, AT-27). `spec.md` still holds the old draft configuration listing.
+- Deferred by the user on 2026-10-03: the one-hour run with the motor and pixels together, with the capacitors fitted (old AT-29). This was the bench proof of FR-14. The firmware half of FR-14 is delivered.
 
 ---
 
@@ -65,7 +69,7 @@ In every statement, "the system" means the windmill firmware running on the ESP3
 ### Sails
 
 **FR-01: Turn the sails while Sails Turning is on**
-- **Statement:** While "Sails Turning" is on, the system shall keep the sails turning at the current Sail Speed, forward unless the reverse control is on (FR-30), with no limit on how long they run.
+- **Statement:** While "Sails Turning" is on, the system shall keep the sails turning at the current Sail Speed, forward unless "Reverse Rotation" is on (FR-30), with no limit on how long they run.
 
 **FR-02: Stop the sails at once**
 - **Statement:** When the operator turns off "Sails Turning" in HA or a button press turns the mill off, the system shall stop the sails in either direction within 1 s of the operator's action, with no coast-down.
@@ -105,8 +109,8 @@ In every statement, "the system" means the windmill firmware running on the ESP3
 **FR-13: Brightness cap**
 - **Statement:** The system shall drive each pixel at no more than 60% of its full output, whatever brightness or colour HA or the button requests.
 
-**FR-14: Pixels stay steady while the motor runs**
-- **Statement:** While the sails turn and all four lights show steady colours with no effect, the system shall show no visible flicker or colour change on any pixel for 60 minutes.
+**FR-14: Steady lights send no pixel data**
+- **Statement:** While all four lights show steady colours with no effect, the system shall send no new data to the pixels.
 
 **FR-41: Lights fade on and off**
 - **Statement:** When any of the four mill lights turns on or off, by the button or from HA without a requested transition time or effect, the system shall fade its pixel to the new state, so that the pixel begins to change within 1 s of the operator's action and finishes the change within 4 s of it.
@@ -134,7 +138,7 @@ In every statement, "the system" means the windmill firmware running on the ESP3
 ### Start-up and network
 
 **FR-20: Dark and still at start-up**
-- **Statement:** When the device starts after any reset or power restore, the system shall keep all four pixels dark and the sails still, and show "Sails Turning" and all four lights as off in HA, until the operator sends a command or presses the button.
+- **Statement:** When the device starts after any reset or power restore, the system shall keep all four pixels dark and the sails still, and show "Sails Turning", "Reverse Rotation" and all four lights as off in HA, until the operator sends a command or presses the button.
 
 **FR-21: Keep running during network loss**
 - **Statement:** If the WiFi or HA connection drops, then the system shall keep the sails and lights in their current state, without restarting, for as long as the loss lasts, unless the operator presses the Mill Button.
@@ -160,27 +164,24 @@ In every statement, "the system" means the windmill firmware running on the ESP3
 **FR-28: No logs over USB serial**
 - **Statement:** The system shall send no firmware log messages over the USB serial port.
 
-### Bench option
-
-**FR-29: Pixel addressing test**
-- **Statement:** Where the bench option is included, when the operator starts the pixel addressing test from HA, the system shall turn off any of the four mill lights that are on and show them as off in HA, then light each pixel alone for at least 1 s in the order 0, 1, 2, 3, make one pass, and leave all four pixels dark, so that the operator can match each pixel number to its position.
+### Sail direction
 
 **FR-30: Reverse rotation**
-- **Statement:** Where the bench option is included, while the reverse control is on, the system shall turn the sails in the reverse direction, not the forward direction, whenever the sails turn.
+- **Statement:** While "Reverse Rotation" is on, the system shall turn the sails in the reverse direction, not the forward direction, whenever the sails turn.
 
 **FR-31: Change direction while turning**
-- **Statement:** Where the bench option is included, while the sails turn, when the operator turns the reverse control on or off, the system shall change the direction of the sails without the operator stopping them first.
+- **Statement:** While the sails turn, when the operator turns "Reverse Rotation" on or off, the system shall change the direction of the sails without the operator stopping them first.
 
-**FR-32: Button leaves the bench controls alone**
-- **Statement:** Where the bench option is included, when the operator short-presses the button, the system shall act on the four mill lights and the sails only, and leave the reverse control as it is.
+**FR-42: Change direction while stopped**
+- **Statement:** While the sails are stopped, when the operator turns "Reverse Rotation" on or off, the system shall keep the sails stopped and "Sails Turning" off, and use the new direction the next time the sails start.
 
-**FR-33: No test controls in production**
-- **Statement:** Where the bench option is not included, the system shall offer in HA no pixel addressing test and no reverse control.
+**FR-32: Button leaves the direction alone**
+- **Statement:** When the operator short-presses the button, the system shall act on the four mill lights and the sails only, and leave "Reverse Rotation" as it is.
 
 ### Repository
 
 **FR-34: Checks pass with placeholder secrets**
-- **Statement:** When the reviewer runs the YAML lint, the configuration validation command and the compile command with only the placeholder secrets in place, the system shall pass all three with no errors, both with and without the bench option.
+- **Statement:** When the reviewer runs the YAML lint, the configuration validation command and the compile command on the production configuration with only the placeholder secrets in place, the system shall pass all three with no errors.
 
 **FR-35: Secrets file out of version control**
 - **Statement:** The system shall keep the real secrets file out of version control.
@@ -191,9 +192,6 @@ In every statement, "the system" means the windmill firmware running on the ESP3
 **FR-37: Repeatable builds**
 - **Statement:** The system shall pin the ESPHome and yamllint versions in the repository, so that the same commit builds with the same tool versions.
 
-**FR-38: One source of truth in spec.md**
-- **Statement:** The system shall hold a `spec.md` in which a pointer to the firmware files in the repository replaces the firmware configuration listing, and every statement about the firmware that this feature changes matches the firmware files.
-
 **FR-39: HA group instructions**
 - **Statement:** The system shall include a short note in the repository that tells the operator how to create the HA light groups "Mill Interior" (pixels 1–3) and "Mill Lights" (all four pixels).
 
@@ -202,30 +200,26 @@ In every statement, "the system" means the windmill firmware running on the ESP3
 ## Non-Functional Requirements
 
 **NFR-01: Brightness cap covers every pixel path**
-- **Target:** Every path that sets pixel output applies the 60% cap: each of the four lights, the button's mill-on action and the pixel addressing test. Zero paths without the cap.
+- **Target:** Every path that sets pixel output applies the 60% cap: each of the four lights and the button's mill-on action. Zero paths without the cap.
 - **Verification:** architectural-only. The reviewer confirms in the firmware files that each path carries the cap.
 
 **NFR-02: Safety invariants hold in the firmware files**
-- **Target:** Zero violations of these rules in review: nothing restores a lit or turning state at start-up; no path sets Sail Speed outside 60–320 steps/s; stepper outputs IN1–IN4 are GPIO0, GPIO1, GPIO3 and GPIO4, GPIO2 is unconnected, pixel data is GPIO6 and the button is GPIO5, as `spec.md` "Pin allocation" states; serial logging is off; the committed log level is INFO.
+- **Target:** Zero violations of these rules in review: nothing restores a lit, turning or reversed state at start-up; no path sets Sail Speed outside 60–320 steps/s; stepper outputs IN1–IN4 are GPIO0, GPIO1, GPIO3 and GPIO4, GPIO2 is unconnected, pixel data is GPIO6 and the button is GPIO5, as `spec.md` "Pin allocation" states; serial logging is off; the committed log level is INFO.
 - **Verification:** architectural-only. The reviewer checks the firmware files against the handbook "Safety invariants" before each commit.
-
-**NFR-03: One change removes the bench option**
-- **Target:** Removing the bench option is a change of one line in one file.
-- **Verification:** architectural-only. The reviewer confirms by diff.
 
 ---
 
 ## Acceptance Tests
 
 **AT-01: Forward rotation, start and stop** (FR-01, FR-02, FR-03, FR-18; Phase 1 "rotation")
-- **Given:** The ULN2003 and a bare 28BYJ-48 are wired on the breadboard, a mark is drawn on the motor shaft coupler, Sail Speed is 170 steps/s, the sails are stopped, and, if the bench option is included, the reverse control is off.
+- **Given:** The ULN2003 and a bare 28BYJ-48 are wired on the breadboard, a mark is drawn on the motor shaft coupler, Sail Speed is 170 steps/s, the sails are stopped, and "Reverse Rotation" is off.
 - **When:** The operator turns on "Sails Turning" in HA, watches the mark for one minute from the side where the sails attach, times three full turns with a stopwatch, then turns off "Sails Turning" in HA.
 - **Then:** The mark turns steadily anticlockwise (forward) for the whole minute; three turns take between 34.3 s and 38.0 s; the mark stops within 1 s of the switch going off in HA; HA shows "Sails Turning" on while the mark turns and off within 5 s of the stop.
 
-**AT-02: Reverse rotation and direction change** (FR-30, FR-31, FR-32, FR-03, FR-02, FR-15; Phase 1 "rotation both directions")
-- **Given:** The bench option is included, the motor is wired as in AT-01, Sail Speed is 170 steps/s, the sails are stopped and the reverse control is off.
-- **When:** The operator turns on the reverse control in HA, turns on "Sails Turning", watches the mark for one minute and times three full turns; then, while the sails turn, turns off the reverse control and watches for 30 s; turns the reverse control on again and watches for 30 s; turns off "Sails Turning"; then turns on "Sails Turning" again, with the reverse control still on, and short-presses the button.
-- **Then:** With the reverse control on, the mark turns steadily clockwise, opposite to AT-01, three turns take a time within the AT-01 window, and HA shows "Sails Turning" on. When the reverse control goes off, the mark changes to anticlockwise without the operator stopping it, and "Sails Turning" stays on. When the reverse control goes on again, the mark changes back to clockwise. When "Sails Turning" goes off, the mark stops within 1 s of the switch going off in HA. After the button press, the mark stops within 1 s of release, HA shows "Sails Turning" off within 5 s, and the reverse control stays on.
+**AT-02: Reverse rotation and direction change** (FR-30, FR-31, FR-42, FR-32, FR-03, FR-02, FR-15, FR-20; Phase 1 "rotation both directions")
+- **Given:** The motor and the button are wired as in AT-01, Sail Speed is 170 steps/s, the sails are stopped and "Reverse Rotation" is off. The device is powered from its USB charger.
+- **When:** The operator turns on "Reverse Rotation" in HA and watches the mark for 5 s; turns on "Sails Turning", watches the mark for one minute and times three full turns; then, while the sails turn, turns off "Reverse Rotation" and watches for 30 s; turns "Reverse Rotation" on again and watches for 30 s; turns off "Sails Turning"; then turns on "Sails Turning" again, with "Reverse Rotation" still on, and short-presses the button. Last, with "Reverse Rotation" still on, the operator unplugs the USB charger for 10 s, plugs it back in, waits until HA shows the device connected, and turns on "Sails Turning".
+- **Then:** While the sails are stopped, turning on "Reverse Rotation" does not move the mark, and "Sails Turning" stays off. With "Reverse Rotation" on, the mark turns steadily clockwise, opposite to AT-01, three turns take a time within the AT-01 window, and HA shows "Sails Turning" on. When "Reverse Rotation" goes off, the mark changes to anticlockwise without the operator stopping it, and "Sails Turning" stays on. When "Reverse Rotation" goes on again, the mark changes back to clockwise. When "Sails Turning" goes off, the mark stops within 1 s of the switch going off in HA. After the button press, the mark stops within 1 s of release, HA shows "Sails Turning" off within 5 s, and "Reverse Rotation" stays on. After the restart, HA shows "Reverse Rotation" off, and when "Sails Turning" goes on the mark turns anticlockwise.
 
 **AT-03: Sails hold when stopped** (FR-04)
 - **Given:** The sails have turned and then stopped, and a meter is in series with the ULN2003 board's 5 V feed only.
@@ -310,7 +304,7 @@ In every statement, "the system" means the windmill firmware running on the ESP3
 **AT-19: First flash and encrypted HA connection** (FR-25; Phase 1 "flash the C3, confirm WiFi and API")
 - **Given:** The C3 is powered from the laptop's USB cable, with no charger connected. The operator has flashed our firmware over USB once, replacing the web-installer firmware, and has removed the old device from HA.
 - **When:** HA discovers the device, and the operator first enters a wrong encryption key and then the correct key.
-- **Then:** HA rejects the wrong key and does not connect; with the correct key HA connects and shows the four lights, "Sails Turning", "Sail Speed" and "Mill Button".
+- **Then:** HA rejects the wrong key and does not connect; with the correct key HA connects and shows the four lights, "Sails Turning", "Reverse Rotation", "Sail Speed" and "Mill Button".
 
 **AT-20: Network update with and without the password** (FR-26, FR-20)
 - **Given:** The device runs our firmware on the network, the mill is on after a button press, and HA shows the firmware build date. The device is powered from its USB charger, with no laptop connected.
@@ -322,20 +316,10 @@ In every statement, "the system" means the windmill firmware running on the ESP3
 - **When:** The operator opens the device log over the network with the log command, keeps the serial monitor open, and short-presses the Mill Button.
 - **Then:** The log command connects to the device by name; within 2 minutes of the press, the network log shows a message that the mill turned on or off, and the serial monitor shows no firmware log lines. Output that the chip prints before the firmware starts (the boot ROM banner and the bootloader lines) is allowed.
 
-**AT-22: Pixel addressing test** (FR-29; Phase 1 "all four pixels address correctly")
-- **Given:** The bench option is included and four pixels are wired on the bench, each labelled with its intended position. At least one of the four mill lights is on.
-- **When:** The operator starts the pixel addressing test from HA and watches the pixels and HA.
-- **Then:** HA shows every mill light that was on as off; the pixels light one at a time in the order 0, 1, 2, 3, each alone for at least 1 s; the pixel that lights at each step is the one labelled with that number; and after one pass all four pixels are dark.
-
-**AT-23: Production build has no test controls** (FR-33)
-- **Given:** The bench option is included and its controls show in HA.
-- **When:** The reviewer removes the bench option, and the operator updates the device over the network and opens the device page in HA.
-- **Then:** HA shows no pixel addressing test, no reverse control and no light for the whole pixel strip; the four lights, "Sails Turning", "Sail Speed" and "Mill Button" are still present. Entities that HA keeps as "no longer provided" do not count against this, and the operator may remove them.
-
 **AT-24: Repository checks** (FR-34)
-- **Given:** A fresh clone of the repository in which the example secrets file has been copied to the secrets file, no real credential is present, and the bench option is included.
-- **When:** The reviewer runs the YAML lint, the validation command and the compile command from the command line, then removes the bench option and runs all three again.
-- **Then:** All six runs finish with no errors.
+- **Given:** A fresh clone of the repository in which the example secrets file has been copied to the secrets file, and no real credential is present.
+- **When:** The reviewer runs the YAML lint, the validation command and the compile command on the production configuration from the command line.
+- **Then:** All three runs finish with no errors.
 
 **AT-25: No real credentials committed** (FR-35, FR-36)
 - **Given:** The repository with its full commit history.
@@ -347,20 +331,10 @@ In every statement, "the system" means the windmill firmware running on the ESP3
 - **When:** The reviewer creates a fresh Python environment from the pinned requirements file and asks ESPHome and yamllint for their versions.
 - **Then:** Both report exactly the versions pinned in the repository.
 
-**AT-27: spec.md points to the firmware files** (FR-38)
-- **Given:** The repository after this feature.
-- **When:** The reviewer opens the "ESPHome configuration" section of `spec.md`, reads the notes under the place where the old listing was, and reads the Option B step about moving configuration blocks.
-- **Then:** The section holds no configuration listing and points to the firmware files in the repository by path; the notes and the Option B step match the firmware files in the repository and refer to no part of the removed listing.
-
 **AT-28: HA light groups** (FR-39)
 - **Given:** The four lights show in HA and the repository note on light groups exists.
 - **When:** The operator follows the note to create "Mill Interior" and "Mill Lights" in HA, turns on "Mill Interior", then turns off "Mill Lights".
 - **Then:** "Mill Interior" turns on pixels 1, 2 and 3 only; "Mill Lights" turns off all four pixels.
-
-**AT-29: One-hour run with motor and pixels together** (FR-14; Phase 1 "run together for an hour")
-- **Given:** The 470 µF capacitor at the stepper driver is fitted. A capacitor of at least 100 µF is fitted at the pixel string entry only if an earlier run of this test showed flicker. The sails turn at 170 steps/s and all four lights are on steady colours with no effect. The operator may watch the pixels directly or make one continuous video recording of them for the whole hour.
-- **When:** The operator runs the mill for 60 minutes and watches the pixels, or reviews the recording.
-- **Then:** No pixel flickers or changes colour at any point during the hour, and the sails turn for the whole hour.
 
 ---
 
@@ -377,9 +351,8 @@ In every statement, "the system" means the windmill firmware running on the ESP3
 ### Glossary
 - **Operator:** The maker who controls and tests the mill through HA, the button, a meter and by eye.
 - **Reviewer:** The person who reads the repository and runs the validation commands before a commit.
-- **Bench option:** Exactly two test-only controls, the pixel addressing test and the reverse control, included during bench work and removed for production.
-- **Reverse control:** The bench-only on/off control in HA. While it is on, the sails turn in reverse whenever they turn.
-- **Production firmware:** The firmware with the bench option removed.
+- **Reverse Rotation:** The on/off switch in HA that sets the sail direction. While it is on, the sails turn in reverse whenever they turn. It is a permanent production control, and it is off after every restart.
+- **Production configuration:** The one firmware configuration in the repository. There is no bench option (deferred by the user on 2026-10-03).
 - **Forward:** Anticlockwise as seen from the sail side (the front) of the mill, as on traditional English windmills. Reverse is the opposite direction, clockwise as seen from the sail side.
 - **Mill on:** The three interior lights in warm deep amber with Lamplight, "Mill Door Lamp" steady in warm deep amber, and the sails turning at the current Sail Speed.
 - **Mill Button:** The physical push button on the mill, also called "the button". HA shows whether it is pressed or released as an entity of the same name.
@@ -408,3 +381,4 @@ In every statement, "the system" means the windmill firmware running on the ESP3
 | 1.5 | 2026-10-02 | Pete Turner (with Claude) | FR-41 excludes HA turn-ons that request an effect (the platform starts an effect without a fade); accepted by the user during design |
 | 1.6 | 2026-10-03 | Pete Turner (with Claude) | Pins changed so GPIO2 (boot-strapping) is unconnected: stepper on GPIO0, 1, 3, 4, pixel data on GPIO6 (NFR-02); AT-29 no longer requires the pixel-entry capacitor unless a run shows flicker |
 | 1.7 | 2026-10-03 | Pete Turner (with Claude) | Pixel order changed for wiring (0 door lamp, 1 door glow, 2 stone floor window, 3 bin floor window); pixels found to be RGBW at the bench |
+| 1.8 | 2026-10-03 | Pete Turner (with Claude) | Scope reduced by the user: no bench option. Deferred and removed: FR-29, FR-33, FR-38, NFR-03, AT-22, AT-23, AT-27, AT-29 (listed in Explicitly Out of Scope). "Reverse Rotation" is now a permanent production switch: FR-30, FR-31, FR-32 and AT-02 rewritten, FR-42 added, FR-20 and AT-19 include it. FR-14 keeps its firmware half. FR-34 and AT-24 cover one configuration (three runs) |
