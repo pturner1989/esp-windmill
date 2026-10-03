@@ -114,6 +114,19 @@ inline Rgb phrase_colour(int64_t phrase, int slot) {
 
 inline uint8_t scale(uint8_t channel, uint8_t by) { return uint8_t((channel * by + 127) / 255); }
 
+// Disco starts at `now`: beat 0 at `now`, with the BPM and rate kept. Each
+// slot keeps its latest flash time, so a quick off and on cannot flash a pixel
+// again within kGapMs. A time more than 10 s old moves up to now - 10 s, so
+// since() stays in range however long disco was off.
+inline Disco start(Disco d, uint32_t now) {
+  d.clock.anchor_ms = now;
+  d.clock.anchor_beat = 0;
+  for (Slot &s : d.slots) {
+    if (since(s.flash_ms, now - 10000) < 0) s.flash_ms = now - 10000;
+  }
+  return d;
+}
+
 // The next state and output of `slot` at `now`. A new scheduled start becomes
 // a flash only if it is at least kGapMs after the slot's last flash and at
 // most kLateMs in the past. Otherwise the start passes with no flash.

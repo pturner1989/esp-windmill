@@ -122,3 +122,12 @@ in front, for example "Windmill Mill Door Glow".
 
 The groups exist only in HA. The mill button and the firmware scripts act on the four lights
 directly, not on these groups.
+
+## Disco
+
+Turn on the "Disco Mode" switch in HA to start disco. All four lights turn on at full brightness with
+the "Disco" effect: each pixel flashes in turn and fades, the firing order changes every bar and
+the colours change every 16 beats. The chase runs at 120 BPM. Turn the switch off to end disco: within
+4 s all four lights show the lamplight look (warm amber, with Lamplight on the three interior lights),
+also a light that was off before disco. Disco never touches the sails, so turning sails keep turning
+and stopped sails stay stopped. The switch is off after every restart.

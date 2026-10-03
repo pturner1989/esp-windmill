@@ -6,8 +6,9 @@
 #   mill_reverse_from_button (script).
 # Uses ids: mill_sails_turn and mill_sails_reverse_switch (switch "Reverse
 #   Rotation") from the sails package; mill_door_glow, mill_stone_window,
-#   mill_bin_window and mill_door_lamp from the lights package. The scripts
-#   use only these firmware entities and never touch the strip. Only the long
+#   mill_bin_window, mill_door_lamp and mill_lamplight (script) from the lights
+#   package. The scripts use only these firmware entities, turn on no light
+#   themselves and never touch the strip. Only the long
 #   press changes the sail direction, and only through the Reverse Rotation
 #   switch, never through the direction global.
 
@@ -77,84 +78,24 @@ script:
                 tag: mill.controls
 
   # Stop the sails at once. Each light fades off over its 3 s default and
-  # stops its effect.
+  # stops its effect. Stop any pending lamplight first, so no light comes back
+  # on with Lamplight.
   - id: mill_off
     then:
       - script.stop: mill_on
+      - script.stop: mill_lamplight
       - switch.turn_off: mill_sails_turn
       - light.turn_off: mill_door_glow
       - light.turn_off: mill_stone_window
       - light.turn_off: mill_bin_window
       - light.turn_off: mill_door_lamp
 
-  # Start the sails at the current Sail Speed and fade the lights on to warm
-  # deep amber. A call that sets an effect skips the default fade, so the
-  # lights fade on with no effect, and Lamplight starts after the fade.
-  # The pixels are RGBW: the colour mode and white 0% keep the white channel
-  # dark, and colour brightness 100% overrides a lower value set from HA.
-  # The amber is 255/120/40 at the LED. ESPHome applies gamma 2.8 after these
-  # values, so they are set to the inputs that give that output: 100/76/52 %.
+  # Start the sails at the current Sail Speed and give all four lights the
+  # lamplight look.
   - id: mill_on
     mode: restart
     then:
       - switch.turn_on: mill_sails_turn
-      - light.turn_on:
-          id: mill_door_glow
-          color_mode: RGB_WHITE
-          brightness: 100%
-          color_brightness: 100%
-          red: 100%
-          green: 76%
-          blue: 52%
-          white: 0%
-      - light.turn_on:
-          id: mill_stone_window
-          color_mode: RGB_WHITE
-          brightness: 100%
-          color_brightness: 100%
-          red: 100%
-          green: 76%
-          blue: 52%
-          white: 0%
-      - light.turn_on:
-          id: mill_bin_window
-          color_mode: RGB_WHITE
-          brightness: 100%
-          color_brightness: 100%
-          red: 100%
-          green: 76%
-          blue: 52%
-          white: 0%
-      - light.turn_on:
-          id: mill_door_lamp
-          color_mode: RGB_WHITE
-          brightness: 85%
-          color_brightness: 100%
-          red: 100%
-          green: 76%
-          blue: 52%
-          white: 0%
-      - delay: 3s
-      # A light turned off during the fade is still on in light.is_on, which
-      # reads the fading values, so check the target state that HA shows.
-      - if:
-          condition:
-            lambda: "return id(mill_door_glow).remote_values.is_on();"
-          then:
-            - light.turn_on:
-                id: mill_door_glow
-                effect: Lamplight
-      - if:
-          condition:
-            lambda: "return id(mill_stone_window).remote_values.is_on();"
-          then:
-            - light.turn_on:
-                id: mill_stone_window
-                effect: Lamplight
-      - if:
-          condition:
-            lambda: "return id(mill_bin_window).remote_values.is_on();"
-          then:
-            - light.turn_on:
-                id: mill_bin_window
-                effect: Lamplight
+      - script.execute:
+          id: mill_lamplight
+          mask: 15

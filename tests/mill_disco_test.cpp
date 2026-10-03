@@ -211,8 +211,36 @@ void test_clock_across_millis_wrap() {
   }
 }
 
+// A start puts beat 0 at the start time and keeps the tempo. A pixel that
+// flashed just before the start does not flash again within 333 ms, so a quick
+// off and on shows no double flash. At 150 BPM and 1/2x a step is 800 ms, and
+// slot 0 has a scheduled start at the start time itself.
+void test_start_resets_the_beat_and_keeps_the_gap() {
+  Disco d = anchored_at(0);
+  d.clock.bpm = 150;
+  d.clock.rate = 0.5f;
+  const uint32_t now = 7777;
+  for (Slot &s : d.slots) s.flash_ms = now - 100;
+  Disco started = start(d, now);
+  CHECK_NEAR(beats_at(started.clock, now), 0, 1e-9);
+  CHECK(started.clock.bpm == 150.0f && started.clock.rate == 0.5f);
+  std::vector<Start> starts = simulate(started, now, 2000);
+  for (int slot = 0; slot < 4; slot++) {
+    uint32_t previous = now - 100;
+    int flashes = 0;
+    for (const Start &s : starts) {
+      if (s.slot != slot) continue;
+      CHECK(int32_t(s.at - previous) >= 333);
+      previous = s.at;
+      flashes++;
+    }
+    CHECK(flashes >= 2);  // the chase goes on after the start
+  }
+}
+
 int main() {
   test_chase_at_120_bpm();
+  test_start_resets_the_beat_and_keeps_the_gap();
   test_colour_changes_only_at_phrase_start();
   test_late_frame_skips_old_starts();
   test_bar_orders();

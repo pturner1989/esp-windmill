@@ -5,7 +5,8 @@
 #   mill_door_glow (light "Mill Door Glow", pixel 1),
 #   mill_stone_window (light "Mill Stone Floor Window", pixel 2),
 #   mill_bin_window (light "Mill Bin Floor Window", pixel 3),
-#   mill_door_lamp (light "Mill Door Lamp", pixel 0).
+#   mill_door_lamp (light "Mill Door Lamp", pixel 0),
+#   mill_lamplight (script: the lamplight look on the lights in a mask).
 # Each light applies its own colour correction, not the strip's, so the 60%
 # cap is on the strip and on every light. The cap lists four values: with
 # only three, ESPHome leaves the white channel at 100%. Every pixel write goes
@@ -109,3 +110,99 @@ light:
           name: Disco
           update_interval: 16ms
           lambda: "mill_disco::render(it, 0);"
+
+script:
+  # The lamplight look on the lights in `mask` (bit n is pixel n, so 15 is all
+  # four): fade to warm deep amber, then start Lamplight. Effect None stops any
+  # other effect ("Disco") at once and still takes the 3 s default fade. A call
+  # that names a real effect skips the fade, so Lamplight starts after it.
+  # The pixels are RGBW: the colour mode and white 0% keep the white channel
+  # dark, and colour brightness 100% overrides a lower value set from HA.
+  # The amber is 255/120/40 at the LED. ESPHome applies gamma 2.8 after these
+  # values, so they are set to the inputs that give that output: 100/76/52 %.
+  # Every caller that ends the look (mill off, a disco start) stops this script.
+  - id: mill_lamplight
+    mode: restart
+    parameters:
+      mask: int
+    then:
+      - if:
+          condition:
+            lambda: "return mask & 2;"
+          then:
+            - light.turn_on:
+                id: mill_door_glow
+                color_mode: RGB_WHITE
+                brightness: 100%
+                color_brightness: 100%
+                red: 100%
+                green: 76%
+                blue: 52%
+                white: 0%
+                effect: None
+      - if:
+          condition:
+            lambda: "return mask & 4;"
+          then:
+            - light.turn_on:
+                id: mill_stone_window
+                color_mode: RGB_WHITE
+                brightness: 100%
+                color_brightness: 100%
+                red: 100%
+                green: 76%
+                blue: 52%
+                white: 0%
+                effect: None
+      - if:
+          condition:
+            lambda: "return mask & 8;"
+          then:
+            - light.turn_on:
+                id: mill_bin_window
+                color_mode: RGB_WHITE
+                brightness: 100%
+                color_brightness: 100%
+                red: 100%
+                green: 76%
+                blue: 52%
+                white: 0%
+                effect: None
+      - if:
+          condition:
+            lambda: "return mask & 1;"
+          then:
+            - light.turn_on:
+                id: mill_door_lamp
+                color_mode: RGB_WHITE
+                brightness: 85%
+                color_brightness: 100%
+                red: 100%
+                green: 76%
+                blue: 52%
+                white: 0%
+                effect: None
+      - delay: 3s
+      # A light turned off during the fade is still on in light.is_on, which
+      # reads the fading values, so check the target state that HA shows.
+      - if:
+          condition:
+            lambda: "return (mask & 2) && id(mill_door_glow).remote_values.is_on();"
+          then:
+            - light.turn_on:
+                id: mill_door_glow
+                effect: Lamplight
+      - if:
+          condition:
+            lambda: "return (mask & 4) && id(mill_stone_window).remote_values.is_on();"
+          then:
+            - light.turn_on:
+                id: mill_stone_window
+                effect: Lamplight
+      - if:
+          condition:
+            lambda: "return (mask & 8) && id(mill_bin_window).remote_values.is_on();"
+          then:
+            - light.turn_on:
+                id: mill_bin_window
+                effect: Lamplight

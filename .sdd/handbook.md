@@ -39,6 +39,7 @@ packages/
   mill_sails.yaml          # Stepper, speed number, run switch
   mill_lights.yaml         # Pixel strip and partition lights
   mill_controls.yaml       # Button and scripts
+  mill_disco.yaml          # Disco Mode switch and its scripts
 include/
   mill_disco.h             # Disco maths: pure functions, host-tested
   mill_disco_esphome.h     # Disco glue: shared state, millis(), pixel write

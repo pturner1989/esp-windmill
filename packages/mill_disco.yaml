@@ -1,0 +1,77 @@
+# Disco: the "Disco Mode" switch starts and ends the "Disco" chase on all four
+# lights. It never names the sails, so turning sails keep turning at the same
+# speed and direction, and stopped sails stay stopped.
+# Exposes ids: mill_disco_mode (switch "Disco Mode"),
+#   mill_disco_start (script), mill_disco_leave (script).
+# Uses ids: mill_door_glow, mill_stone_window, mill_bin_window, mill_door_lamp
+#   and mill_lamplight (script) from the lights package. The lambda calls
+#   mill_disco::start_now() from include/mill_disco_esphome.h.
+# The switch is not optimistic: only the two scripts publish its state, so HA
+# sees only the true state. It is off after every restart. Its boot-time
+# turn-off runs the leave, which does nothing while the switch is off.
+
+switch:
+  - platform: template
+    id: mill_disco_mode
+    name: Disco Mode
+    optimistic: false
+    restore_mode: ALWAYS_OFF
+    turn_on_action:
+      - script.execute: mill_disco_start
+    turn_off_action:
+      - script.execute: mill_disco_leave
+
+script:
+  # Beat 0 now, then all four lights on at full brightness with "Disco". A
+  # call that sets an effect skips the fade, so the chase starts at once. Stop
+  # any pending lamplight first, or it would end the chase.
+  - id: mill_disco_start
+    then:
+      - if:
+          condition:
+            switch.is_off: mill_disco_mode
+          then:
+            - script.stop: mill_lamplight
+            - lambda: "mill_disco::start_now();"
+            - switch.template.publish:
+                id: mill_disco_mode
+                state: true
+            - light.turn_on:
+                id: mill_door_glow
+                brightness: 100%
+                effect: Disco
+            - light.turn_on:
+                id: mill_stone_window
+                brightness: 100%
+                effect: Disco
+            - light.turn_on:
+                id: mill_bin_window
+                brightness: 100%
+                effect: Disco
+            - light.turn_on:
+                id: mill_door_lamp
+                brightness: 100%
+                effect: Disco
+            - logger.log:
+                format: "Disco on"
+                level: INFO
+                tag: mill.disco
+
+  # All four lights take the lamplight look, also a light that was off before
+  # disco. The lamplight script restarts, so a pending lamplight ends.
+  - id: mill_disco_leave
+    then:
+      - if:
+          condition:
+            switch.is_on: mill_disco_mode
+          then:
+            - switch.template.publish:
+                id: mill_disco_mode
+                state: false
+            - script.execute:
+                id: mill_lamplight
+                mask: 15
+            - logger.log:
+                format: "Disco off"
+                level: INFO
+                tag: mill.disco

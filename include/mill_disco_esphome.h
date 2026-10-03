@@ -23,4 +23,7 @@ inline void render(esphome::light::AddressableLight &it, int slot) {
   it[0] = esphome::Color(f.out.r, f.out.g, f.out.b, f.out.w);
 }
 
+// Disco starts now: beat 0 at this moment. Called by the disco start script.
+inline void start_now() { shared() = start(shared(), esphome::millis()); }
+
 }  // namespace mill_disco

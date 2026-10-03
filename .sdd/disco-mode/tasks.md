@@ -95,7 +95,7 @@ AC-1 to AC-3 are agent-checkable; AC-4 needs the operator and is AT-06 by eye at
 
 ### Task 3: Disco Mode on and off from HA
 
-- **Status:** Backlog
+- **Status:** Done (agent checks); device ACs pending user
 - **Blocked by:** Task 1, Task 2
 
 **What to build:**
