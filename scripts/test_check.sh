@@ -585,6 +585,90 @@ test_lights_settings() {
   done
 }
 
+# effect_list ITEM prints one line for each effect of the light ITEM in the
+# validated config: type|name|update_interval|intensity, with "-" for an
+# option that is not set.
+effect_list() {
+  item_key "$1" effects | awk '
+    function flush() { if (type != "") print type "|" name "|" interval "|" intensity }
+    /^      - / {
+      flush()
+      type = $2
+      sub(/:.*$/, "", type)
+      name = interval = intensity = "-"
+      next
+    }
+    { value = $0; sub(/^ *[a-z_]+: /, "", value); gsub(/\047/, "", value) }
+    $1 == "name:" { name = value }
+    $1 == "update_interval:" { interval = value }
+    $1 == "intensity:" { intensity = value }
+    END { flush() }'
+}
+
+# plain_flickers TEXT prints each line of TEXT that starts a plain flicker
+# effect. An addressable_flicker effect does not match.
+plain_flickers() {
+  grep -E '^ *- flicker:' <<< "$1" || true
+}
+
+test_lamplight_effects() {
+  local fixture found lights entry id name light effects type effect interval intensity
+  fixture=$'    effects:\n      - addressable_flicker:\n          name: A\n      - flicker:\n          name: B\n      - flicker: {}\n'
+  found=$(plain_flickers "$fixture")
+  if [[ $(grep -c . <<< "$found") -eq 2 ]]; then
+    pass "flicker search finds plain flicker effects only"
+  else
+    fail "flicker search finds plain flicker effects only" "found: $found"
+  fi
+  [[ $config_status -ne 0 ]] && return
+  lights=$(section light)
+  for entry in "mill_door_glow:Mill Door Glow" "mill_stone_window:Mill Stone Floor Window" \
+    "mill_bin_window:Mill Bin Floor Window"; do
+    IFS=: read -r id name <<< "$entry"
+    light=$(list_item "$lights" "^    id: $id$")
+    effects=$(effect_list "$light")
+    if [[ $(grep -c . <<< "$effects") -ne 1 ]]; then
+      fail "$name has exactly one effect" "effects: ${effects:-none}"
+      continue
+    fi
+    pass "$name has exactly one effect"
+    IFS='|' read -r type effect interval intensity <<< "$effects"
+    if [[ $type == addressable_flicker ]]; then
+      pass "$name effect is an addressable flicker"
+    else
+      fail "$name effect is an addressable flicker" "effect type is '$type'"
+    fi
+    if [[ $effect == Lamplight ]]; then
+      pass "$name effect is named Lamplight"
+    else
+      fail "$name effect is named Lamplight" "effect name is '$effect'"
+    fi
+    if [[ $interval == 50ms ]]; then
+      pass "$name Lamplight updates every 50 ms"
+    else
+      fail "$name Lamplight updates every 50 ms" "update_interval is '$interval'"
+    fi
+    if [[ $intensity =~ ^[0-9]*\.?[0-9]+$ ]] && awk -v v="$intensity" 'BEGIN { exit !(v > 0) }'; then
+      pass "$name Lamplight intensity is above 0%"
+    else
+      fail "$name Lamplight intensity is above 0%" "intensity is '$intensity'"
+    fi
+  done
+  light=$(list_item "$lights" '^    id: mill_door_lamp$')
+  effects=$(item_key "$light" effects)
+  if [[ -n $light && -z $effects ]]; then
+    pass "Mill Door Lamp has no effects"
+  else
+    fail "Mill Door Lamp has no effects" "effects: ${effects:-no light mill_door_lamp}"
+  fi
+  found=$(plain_flickers "$lights")
+  if [[ -z $found ]]; then
+    pass "no light uses the plain flicker effect"
+  else
+    fail "no light uses the plain flicker effect" "found: $found"
+  fi
+}
+
 test_tool_versions
 test_full_pass_with_stubs
 test_refuses_missing_secrets
@@ -602,6 +686,7 @@ test_lambdas_are_short
 test_packages_hold_no_node_config
 test_no_strip_writes
 test_lights_settings
+test_lamplight_effects
 
 echo "$passed passed, $failed failed"
 [[ $failed -eq 0 ]]

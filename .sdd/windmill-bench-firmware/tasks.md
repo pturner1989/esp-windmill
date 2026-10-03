@@ -240,7 +240,7 @@ AC-1 and AC-2 are agent-checkable; AC-3 to AC-6 need the operator after the four
 
 ### Task 6: Lamplight on the interior lights, steady door lamp
 
-- **Status:** Backlog
+- **Status:** In Progress (operator checks AC-2 and AC-3 pending)
 - **Blocked by:** Task 4, Task 5
 
 **What to build:**

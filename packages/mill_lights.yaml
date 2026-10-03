@@ -8,6 +8,10 @@
 # Each light applies its own colour correction, not the strip's, so the 60%
 # cap is on the strip and on every light. Every pixel write goes through one
 # of the four lights. A light with no effect sends frames only while it changes.
+# The three interior lights offer "Lamplight", an addressable_flicker. It
+# writes at most once each update_interval, whatever the loop rate, and each
+# light draws its own random values. The door lamp has no effect and stays
+# steady. Do not use the plain flicker effect: it writes on every loop pass.
 
 light:
   - platform: esp32_rmt_led_strip
@@ -32,6 +36,11 @@ light:
     color_correct: [60%, 60%, 60%]
     restore_mode: ALWAYS_OFF
     default_transition_length: 3s
+    effects:
+      - addressable_flicker:
+          name: Lamplight
+          update_interval: 50ms
+          intensity: 10%
 
   - platform: partition
     id: mill_stone_window
@@ -43,6 +52,11 @@ light:
     color_correct: [60%, 60%, 60%]
     restore_mode: ALWAYS_OFF
     default_transition_length: 3s
+    effects:
+      - addressable_flicker:
+          name: Lamplight
+          update_interval: 50ms
+          intensity: 10%
 
   - platform: partition
     id: mill_bin_window
@@ -54,6 +68,11 @@ light:
     color_correct: [60%, 60%, 60%]
     restore_mode: ALWAYS_OFF
     default_transition_length: 3s
+    effects:
+      - addressable_flicker:
+          name: Lamplight
+          update_interval: 50ms
+          intensity: 10%
 
   - platform: partition
     id: mill_door_lamp
