@@ -325,7 +325,7 @@ AC-1 and AC-2 are agent-checkable; AC-3 to AC-8 need the operator after the butt
 
 ### Task 8: Mill keeps its state through network loss
 
-- **Status:** Backlog
+- **Status:** In Progress (operator checks AC-2 to AC-4 pending)
 - **Blocked by:** Task 7
 
 **What to build:**

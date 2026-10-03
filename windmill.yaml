@@ -28,9 +28,12 @@ logger:
   baud_rate: 0
   level: INFO
 
+# The node never restarts itself when HA or WiFi is gone, so the mill keeps
+# its state through the loss. Both connections retry on their own.
 api:
   encryption:
     key: !secret api_key
+  reboot_timeout: 0s
 
 ota:
   - platform: esphome
@@ -39,6 +42,7 @@ ota:
 wifi:
   ssid: !secret wifi_ssid
   password: !secret wifi_password
+  reboot_timeout: 0s
   ap:
     ssid: Windmill Fallback
     password: !secret ap_password

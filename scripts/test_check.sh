@@ -244,6 +244,11 @@ test_node_settings() {
   expect_setting "update password comes from secrets" "$ota" "password: !secret '?ota_password'?$"
   expect_setting "access point password comes from secrets" "$wifi" "^    password: !secret '?ap_password'?$"
   expect_setting "access point is Windmill Fallback" "$wifi" "^    ssid: '?Windmill Fallback'?$"
+  expect_setting "WiFi loss never restarts the device" "$wifi" '^  reboot_timeout: 0s$'
+  expect_setting "HA loss never restarts the device" "$api" '^  reboot_timeout: 0s$'
+  expect_setting "access point starts after the default 90 s" "$wifi" '^    ap_timeout: 90s$'
+  expect_same "node leaves the access point timeout at its default" "" \
+    "$(grep -n 'ap_timeout' "$repo/windmill.yaml" || true)"
 }
 
 test_sails_settings() {
