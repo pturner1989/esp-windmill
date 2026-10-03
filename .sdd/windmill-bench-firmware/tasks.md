@@ -75,7 +75,7 @@ AC-1 to AC-7 are agent-checkable, and the reviewer unstages the secrets file str
 
 ### Task 2: Sails turn and stop from HA, and boot stopped
 
-- **Status:** Backlog
+- **Status:** In Progress (operator checks AC-3 to AC-5 pending)
 - **Blocked by:** Task 1
 
 **What to build:**

@@ -43,7 +43,8 @@ It refuses to start if `esphome` or `yamllint` is not on the path, if `secrets.y
 or if `secrets.yaml` is staged in git. The first compile downloads the ESP-IDF toolchain
 (several GB), so it takes several minutes.
 
-`scripts/test_check.sh` tests the check script, the secrets handling and the node settings.
+`scripts/test_check.sh` tests the check script, the secrets handling, the node and sails settings,
+and that no package holds node-level config or a literal GPIO number.
 Run it with the venv active.
 
 ## First USB flash and OTA
@@ -64,6 +65,9 @@ After the first flash, update over the network:
 esphome run windmill.yaml --device village-windmill.local
 ```
 
+If `village-windmill.local` does not resolve on this laptop (mDNS discovery is blocked here),
+use the device's IP address instead: `--device <ip>`. Find the current IP in the router or in HA.
+
 `esphome run` compiles and then uploads. `esphome upload` sends the last build in the
 build directory, so compile the config you want (or use `esphome run`) before an upload.
 
@@ -78,3 +82,15 @@ If the device cannot join the configured WiFi, it starts the access point "Windm
 setup page. The device keeps that network across network updates until a full flash erase. To go
 back to the network in `secrets.yaml`, enter it again on the setup page, or erase the flash and
 flash over USB.
+
+## Forward direction
+
+The sails must turn anticlockwise when you look from the sail side. The substitution
+`sails_forward_direction` in `windmill.yaml` sets which way the stepper turns. Check it on the bench:
+
+1. Put a mark on the motor coupler.
+2. Turn on "Sails Turning" in HA.
+3. Look at the coupler from the sail side.
+4. If the mark turns clockwise, set `sails_forward_direction: "-1"` in the `substitutions` of
+   `windmill.yaml` (or back to `"1"` if it is already `"-1"`). Then update over the network
+   (see "First USB flash and OTA").

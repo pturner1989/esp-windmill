@@ -1,6 +1,13 @@
 substitutions:
   name: village-windmill
   friendly_name: Windmill
+  # Stepper IN1 to IN4. GPIO2 is a boot-strapping pin and stays unconnected.
+  sails_pin_a: GPIO0
+  sails_pin_b: GPIO1
+  sails_pin_c: GPIO3
+  sails_pin_d: GPIO4
+  # "1" or "-1". Set on the bench so forward is anticlockwise from the sail side.
+  sails_forward_direction: "1"
 
 esphome:
   name: ${name}
@@ -33,3 +40,6 @@ wifi:
     password: !secret ap_password
 
 captive_portal:
+
+packages:
+  sails: !include packages/mill_sails.yaml

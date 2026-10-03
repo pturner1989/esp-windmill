@@ -1,0 +1,43 @@
+# Sails: the 28BYJ-48 stepper on a ULN2003 board.
+# Needs substitutions: sails_pin_a, sails_pin_b, sails_pin_c, sails_pin_d
+#   (ULN2003 IN1 to IN4) and sails_forward_direction ("1" or "-1").
+# Exposes ids: mill_sails (stepper), mill_sails_turn (switch "Sails Turning"),
+#   mill_sails_rearm (script).
+
+stepper:
+  - platform: uln2003
+    id: mill_sails
+    pin_a: ${sails_pin_a}
+    pin_b: ${sails_pin_b}
+    pin_c: ${sails_pin_c}
+    pin_d: ${sails_pin_d}
+    step_mode: FULL_STEP
+    max_speed: 170 steps/s
+    # Keep the coils energised so the stopped sails hold their place.
+    sleep_when_done: false
+
+switch:
+  - platform: template
+    name: Sails Turning
+    id: mill_sails_turn
+    optimistic: true
+    restore_mode: ALWAYS_OFF
+    turn_on_action:
+      - script.execute: mill_sails_rearm
+    # A target equal to the current position stops the sails on the next step.
+    turn_off_action:
+      - stepper.set_target:
+          id: mill_sails
+          target: !lambda "return id(mill_sails).current_position;"
+
+script:
+  # Re-base to 0, then aim far ahead. Both calls run in one loop pass, so no
+  # step falls between them.
+  - id: mill_sails_rearm
+    then:
+      - stepper.report_position:
+          id: mill_sails
+          position: 0
+      - stepper.set_target:
+          id: mill_sails
+          target: !lambda "return ${sails_forward_direction} * 10000000;"

@@ -42,6 +42,7 @@ new_repo() {
   mkdir -p "$dir/scripts"
   cp -p "$repo/scripts/check.sh" "$dir/scripts/"
   cp "$repo/windmill.yaml" "$repo/secrets.example.yaml" "$repo/.gitignore" "$dir/"
+  cp -r "$repo/packages" "$dir/"
   git -C "$dir" init -q
   if [[ ${1:-} == with-secrets ]]; then
     cp "$dir/secrets.example.yaml" "$dir/secrets.yaml"
@@ -174,22 +175,45 @@ expect_setting() {
   fi
 }
 
-test_node_settings() {
+# list_item BLOCK PATTERN prints the list entry in BLOCK that holds a line
+# matching PATTERN.
+list_item() {
+  awk -v pat="$2" '
+    /^  - / { if (hit) exit; item = "" }
+    { item = item $0 "\n" }
+    $0 ~ pat { hit = 1 }
+    END { if (hit) printf "%s", item }' <<< "$1"
+}
+
+# pin_number BLOCK PIN prints the GPIO number of PIN (for example pin_a) in BLOCK.
+pin_number() {
+  awk -v key="$2:" '
+    $1 == key { on = 1; next }
+    on && $1 == "number:" { print $2; exit }
+    on && /^    [^ ]/ { exit }' <<< "$1"
+}
+
+# load_config validates windmill.yaml and keeps the output in $config. It
+# uses the example secrets when secrets.yaml is missing.
+load_config() {
   local secrets_backup=""
   if [[ ! -f "$repo/secrets.yaml" ]]; then
     secrets_backup=none
     cp "$repo/secrets.example.yaml" "$repo/secrets.yaml"
   fi
-  status=0
-  config=$(cd "$repo" && esphome config windmill.yaml 2> /dev/null) || status=$?
+  config_status=0
+  config=$(cd "$repo" && esphome config windmill.yaml 2> /dev/null) || config_status=$?
   # ESPHome wraps the access point name in escaped terminal codes that hide it.
   config=${config//\\033\[8m/}
   config=${config//\\033\[28m/}
   [[ $secrets_backup == none ]] && rm -f "$repo/secrets.yaml"
-  if [[ $status -ne 0 ]]; then
-    fail "node config validates" "esphome config exited $status"
-    return
+  if [[ $config_status -ne 0 ]]; then
+    fail "node config validates" "esphome config exited $config_status"
   fi
+}
+
+test_node_settings() {
+  [[ $config_status -ne 0 ]] && return
   local logger esp32 api ota wifi
   logger=$(section logger)
   esp32=$(section esp32)
@@ -205,6 +229,68 @@ test_node_settings() {
   expect_setting "access point is Windmill Fallback" "$wifi" "^    ssid: '?Windmill Fallback'?$"
 }
 
+test_sails_settings() {
+  [[ $config_status -ne 0 ]] && return
+  local substitutions stepper turn package pair letter number actual
+  substitutions=$(section substitutions)
+  stepper=$(list_item "$(section stepper)" '^    id: mill_sails$')
+  turn=$(list_item "$(section switch)" "^    name: '?Sails Turning'?$")
+  package=$(cat "$repo/packages/mill_sails.yaml" 2> /dev/null || true)
+  for pair in a:0 b:1 c:3 d:4; do
+    letter=${pair%:*}
+    number=${pair#*:}
+    expect_setting "node sets sail pin $letter to GPIO$number" "$substitutions" \
+      "^  sails_pin_$letter: '?GPIO$number'?$"
+    expect_setting "sails package takes pin $letter from its substitution" "$package" \
+      "^ +pin_$letter: '?\\\$\\{sails_pin_$letter\\}'?$"
+    actual=$(pin_number "$stepper" "pin_$letter")
+    if [[ $actual == "$number" ]]; then
+      pass "sails stepper pin $letter is GPIO$number"
+    else
+      fail "sails stepper pin $letter is GPIO$number" "pin number is '$actual' in: $stepper"
+    fi
+  done
+  expect_setting "sails stepper is a ULN2003" "$stepper" '^  - platform: uln2003$'
+  expect_setting "sails stepper does not sleep when done" "$stepper" '^    sleep_when_done: false$'
+  expect_setting "sails stepper turns at 170 steps/s" "$stepper" '^    max_speed: 170(\.0)?( steps/s)?$'
+  expect_setting "Sails Turning is optimistic" "$turn" '^    optimistic: true$'
+  expect_setting "Sails Turning boots off" "$turn" '^    restore_mode: ALWAYS_OFF$'
+}
+
+# package_violations DIR prints each line of DIR/*.yaml, with comments
+# removed, that holds a node-level key or a literal GPIO number.
+package_violations() {
+  local file
+  for file in "$1"/*.yaml; do
+    [[ -f $file ]] || continue
+    sed -E 's/(^|[[:space:]])#.*$//' "$file" |
+      grep -nE '^[[:space:]]*(- +)?(esphome|esp32|wifi|api|ota|logger):|GPIO[0-9]|\b(pin[a-z_]*|number): *[0-9]' |
+      sed "s|^|${file##*/}:|" || true
+  done
+}
+
+test_packages_hold_no_node_config() {
+  local fixture violations
+  fixture=$(mktemp -d "$work/packages.XXXX")
+  printf 'wifi:\n  ssid: x\nstepper:\n  - pin_a: GPIO0  # GPIO9\n    pin_b: 4\n# api:\n' > "$fixture/mill_bad.yaml"
+  violations=$(package_violations "$fixture")
+  if [[ $(grep -c . <<< "$violations") -eq 3 ]]; then
+    pass "package search finds node keys and literal pins"
+  else
+    fail "package search finds node keys and literal pins" "found: $violations"
+  fi
+  if ! compgen -G "$repo/packages/*.yaml" > /dev/null; then
+    fail "packages hold no node config or literal pins" "no package in $repo/packages"
+    return
+  fi
+  violations=$(package_violations "$repo/packages")
+  if [[ -z $violations ]]; then
+    pass "packages hold no node config or literal pins"
+  else
+    fail "packages hold no node config or literal pins" "found: $violations"
+  fi
+}
+
 test_tool_versions
 test_full_pass_with_stubs
 test_refuses_missing_secrets
@@ -212,7 +298,10 @@ test_refuses_staged_secrets
 test_refuses_missing_tools
 test_secrets_kept_out_of_git
 test_example_secrets_are_placeholders
+load_config
 test_node_settings
+test_sails_settings
+test_packages_hold_no_node_config
 
 echo "$passed passed, $failed failed"
 [[ $failed -eq 0 ]]
