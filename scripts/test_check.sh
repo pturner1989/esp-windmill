@@ -573,8 +573,8 @@ test_lights_settings() {
   expect_setting "pixel strip is RGBW in GRBW channel order" "$strip" '^    channel_colors: GRBW$'
   expect_setting "pixel strip sends at most one frame each 20 ms" "$strip" '^    max_refresh_rate: 20ms$'
   expect_cap_and_off "pixel strip" "$strip"
-  for entry in "mill_door_glow:0:Mill Door Glow" "mill_stone_window:1:Mill Stone Floor Window" \
-    "mill_bin_window:2:Mill Bin Floor Window" "mill_door_lamp:3:Mill Door Lamp"; do
+  for entry in "mill_door_lamp:0:Mill Door Lamp" "mill_door_glow:1:Mill Door Glow" \
+    "mill_stone_window:2:Mill Stone Floor Window" "mill_bin_window:3:Mill Bin Floor Window"; do
     IFS=: read -r id index name <<< "$entry"
     light=$(list_item "$lights" "^    id: $id$")
     expect_setting "light $id is a partition" "$light" '^  - platform: partition$'

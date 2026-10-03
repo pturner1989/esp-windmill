@@ -200,7 +200,7 @@ AC-1 is agent-checkable; AC-2 and AC-3 need the operator with the motor wired. T
 
 **What to build:**
 
-HA shows four lights, "Mill Door Glow" (pixel 0), "Mill Stone Floor Window" (1), "Mill Bin Floor Window" (2) and "Mill Door Lamp" (3). Each one controls only its own SK6812 pixel, with correct red, green and blue, and fades on and off over 3 s by default. Every pixel is capped at 60% of full output in firmware, on the internal strip and on each of the four lights, so no HA command can exceed it. The whole strip is internal and has no HA entity. After any reset or power cut all four lights are off and dark. The README gains a section on creating the HA light groups "Mill Interior" (pixels 0–2) and "Mill Lights" (all four).
+HA shows four lights, "Mill Door Lamp" (pixel 0), "Mill Door Glow" (1), "Mill Stone Floor Window" (2) and "Mill Bin Floor Window" (3). Each one controls only its own SK6812 pixel, with correct red, green and blue, and fades on and off over 3 s by default. Every pixel is capped at 60% of full output in firmware, on the internal strip and on each of the four lights, so no HA command can exceed it. The whole strip is internal and has no HA entity. After any reset or power cut all four lights are off and dark. The README gains a section on creating the HA light groups "Mill Interior" (pixels 1–3) and "Mill Lights" (all four).
 
 **Acceptance criteria:**
 
@@ -232,11 +232,11 @@ HA shows four lights, "Mill Door Glow" (pixel 0), "Mill Stone Floor Window" (1),
 **AC-6:**
 - **Given:** The four lights show in HA and the README section on light groups exists
 - **When:** The operator follows it to create "Mill Interior" and "Mill Lights", turns on "Mill Interior", then turns off "Mill Lights"
-- **Then:** "Mill Interior" turns on pixels 0, 1 and 2 only, and "Mill Lights" turns off all four
+- **Then:** "Mill Interior" turns on pixels 1, 2 and 3 only, and "Mill Lights" turns off all four
 
 **Notes:**
 
-AC-1 and AC-2 are agent-checkable; AC-3 to AC-6 need the operator after the four pixels are wired to GPIO6 through the 330R with the data-level fix, and AC-5 also needs the motor wired as in Task 2. AC-3 first answers whether the pixels are RGB or RGBW: if the colours are wrong because they are RGBW, only the lights package changes (RGBW flag, GRBW order, four correction values on the strip and every light), and the AT-11 limit is recomputed from the datasheet. Steady lights with no effect send no frames, which is the firmware half of FR-14. This task contributes AT-08, AT-17 (completed here), AT-28 and the first two readings of AT-11 (FR-10, FR-13, FR-14, FR-18, FR-20, FR-39, FR-41, NFR-01); the lights package starts with a comment that lists its substitutions and ids.
+AC-1 and AC-2 are agent-checkable; AC-3 to AC-6 need the operator after the four pixels are wired to GPIO6 through the 330R with the data-level fix, and AC-5 also needs the motor wired as in Task 2. AC-3 first answers whether the pixels are RGB or RGBW: if the colours are wrong because they are RGBW, only the lights package changes (`channel_colors: GRBW` alone, with no RGBW flag, and four correction values on the strip and every light), and the AT-11 limit is recomputed from the datasheet. Steady lights with no effect send no frames, which is the firmware half of FR-14. This task contributes AT-08, AT-17 (completed here), AT-28 and the first two readings of AT-11 (FR-10, FR-13, FR-14, FR-18, FR-20, FR-39, FR-41, NFR-01); the lights package starts with a comment that lists its substitutions and ids.
 
 ### Task 6: Lamplight on the interior lights, steady door lamp
 

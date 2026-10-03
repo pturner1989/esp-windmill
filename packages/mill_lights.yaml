@@ -2,10 +2,10 @@
 # Each pixel takes four bytes in GRBW order.
 # Needs substitution: pixel_pin (pixel data).
 # Exposes ids: mill_pixels (the internal strip, never written directly),
-#   mill_door_glow (light "Mill Door Glow", pixel 0),
-#   mill_stone_window (light "Mill Stone Floor Window", pixel 1),
-#   mill_bin_window (light "Mill Bin Floor Window", pixel 2),
-#   mill_door_lamp (light "Mill Door Lamp", pixel 3).
+#   mill_door_glow (light "Mill Door Glow", pixel 1),
+#   mill_stone_window (light "Mill Stone Floor Window", pixel 2),
+#   mill_bin_window (light "Mill Bin Floor Window", pixel 3),
+#   mill_door_lamp (light "Mill Door Lamp", pixel 0).
 # Each light applies its own colour correction, not the strip's, so the 60%
 # cap is on the strip and on every light. The cap lists four values: with
 # only three, ESPHome leaves the white channel at 100%. Every pixel write goes
@@ -34,8 +34,8 @@ light:
     name: Mill Door Glow
     segments:
       - id: mill_pixels
-        from: 0
-        to: 0
+        from: 1
+        to: 1
     color_correct: [60%, 60%, 60%, 60%]
     restore_mode: ALWAYS_OFF
     default_transition_length: 3s
@@ -50,8 +50,8 @@ light:
     name: Mill Stone Floor Window
     segments:
       - id: mill_pixels
-        from: 1
-        to: 1
+        from: 2
+        to: 2
     color_correct: [60%, 60%, 60%, 60%]
     restore_mode: ALWAYS_OFF
     default_transition_length: 3s
@@ -66,8 +66,8 @@ light:
     name: Mill Bin Floor Window
     segments:
       - id: mill_pixels
-        from: 2
-        to: 2
+        from: 3
+        to: 3
     color_correct: [60%, 60%, 60%, 60%]
     restore_mode: ALWAYS_OFF
     default_transition_length: 3s
@@ -82,8 +82,8 @@ light:
     name: Mill Door Lamp
     segments:
       - id: mill_pixels
-        from: 3
-        to: 3
+        from: 0
+        to: 0
     color_correct: [60%, 60%, 60%, 60%]
     restore_mode: ALWAYS_OFF
     default_transition_length: 3s

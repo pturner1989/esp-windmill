@@ -1,6 +1,6 @@
 # Design: Windmill Bench Firmware
 
-**Version:** 1.3
+**Version:** 1.4
 **Date:** 2026-10-02
 **Status:** Approved
 **Linked Specification** `.sdd/windmill-bench-firmware/specification.md`
@@ -47,7 +47,7 @@
 **HA entities (production):**
 - **Sails Turning** (switch `mill_sails_turn`, optimistic, boots off). On: sets the speed from Sail Speed, then re-arms. Turning it on while on only re-arms. Off: stops the sails at once. It stays on in either direction.
 - **Sail Speed** (number `mill_sail_speed`): 60–320 steps/s, step 10, default 170, restored across restarts. Out of range: ESPHome rejects the value, logs a warning and keeps the state. In range but not a multiple of 10: the firmware rounds half up, and HA only sees the rounded value. A change applies at once, in either direction.
-- **Mill Door Glow** (pixel 0), **Mill Stone Floor Window** (1), **Mill Bin Floor Window** (2): RGB lights with brightness and the "Lamplight" effect. They fade over 3 s by default and boot off. **Mill Door Lamp** (3) is the same, without effects.
+- **Mill Door Glow** (pixel 1), **Mill Stone Floor Window** (2), **Mill Bin Floor Window** (3): RGBW lights with brightness and the "Lamplight" effect. They fade over 3 s by default and boot off. **Mill Door Lamp** (0) is the same, without effects.
 - **Mill Button** (binary sensor `mill_button`): on while pressed. The raw strip `mill_pixels` is `internal` and not in HA.
 
 **Bench only:**
@@ -176,7 +176,7 @@
 - **Details:**
   ```
   button: template "Pixel Addressing Test" → script.execute mill_pixel_test
-  mill_pixel_test (mode single): light.turn_off × 4 transition 0s; then for N in glow, stone, bin, lamp: turn_on N
+  mill_pixel_test (mode single): light.turn_off × 4 transition 0s; then for N in lamp, glow, stone, bin (pixels 0→3): turn_on N
       effect None 100% red, transition 0s; delay 500ms; same call with green; delay 500ms; same call with blue; delay 500ms; turn_off N transition 0s
   switch: template "Reverse Rotation" optimistic, ALWAYS_OFF
     on/off: globals.set mill_sails_reverse; if switch.is_on mill_sails_turn → script.execute mill_sails_rearm
@@ -227,7 +227,7 @@
 - **Consumers:** The operator and the reviewer.
 - **Location:** `README.md`
 - **Kind:** Repository document.
-- **Details:** Sections: Setup, Checks, First USB flash and OTA, Remove the bench option, Forward direction, HA light groups. "First USB flash and OTA" warns that `esphome upload` sends the last build in the shared build directory, so the operator compiles the wanted config (or uses `esphome run`, which compiles) before an upload. The last section uses HA Settings → Helpers → Group → Light group to create "Mill Interior" (pixels 0–2) and "Mill Lights" (all four).
+- **Details:** Sections: Setup, Checks, First USB flash and OTA, Remove the bench option, Forward direction, HA light groups. "First USB flash and OTA" warns that `esphome upload` sends the last build in the shared build directory, so the operator compiles the wanted config (or uses `esphome run`, which compiles) before an upload. The last section uses HA Settings → Helpers → Group → Light group to create "Mill Interior" (pixels 1–3) and "Mill Lights" (all four).
 - **Rationale:** FR-39 (AT-28). The note also holds the commands that AT-19, AT-21, AT-23 and AT-26 use.
 
 ### Used
@@ -298,5 +298,6 @@
 | 1.1 | 2026-10-02 | Pete Turner (with Claude) | Review fixes: Lamplight as `addressable_flicker` with a rate limit, ESP-IDF log level NONE, check order and staged-secrets check, spec v1.5. |
 | 1.2 | 2026-10-03 | Pete Turner (with Claude) | Stepper on GPIO0, 1, 3, 4 with GPIO2 unconnected; pixel data on GPIO6; spec v1.6. |
 | 1.3 | 2026-10-03 | Pete Turner (with Claude) | Pixels are SK6812 RGBW (GRBW order), found at the bench; four-value colour correction. |
+| 1.4 | 2026-10-03 | Pete Turner (with Claude) | Pixel order changed for wiring: 0 door lamp, 1 door glow, 2 stone floor window, 3 bin floor window. |
 
 ---
