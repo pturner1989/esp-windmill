@@ -56,7 +56,7 @@ Each of the four lights gains a "Disco" effect in HA. "Mill Door Lamp" offers it
 
 **Notes:**
 
-AC-1 to AC-5 and AC-8 are agent-checkable; AC-6 and AC-7 need the operator after an update over the network to 192.168.1.7. The first risk in the design is `includes:`: if the compile or link fails, stop and tell the user, because the fallback (approach B: the pure header moves unchanged into an external component under `components/mill_disco/`) changes the handbook ladder and this task. The fixed order (0, 1, 2, 3) and the fixed colours (phrase 0) are temporary, and Task 2 replaces them; the shared state is a function-local static with the defaults 120 BPM and 1×, and until Task 3 adds a start, beat 0 sits at boot. This task applies two of the three start rules in the design (the per-slot 333 ms gap and the 60 ms late limit); Task 6 adds the white window, and a comment in the header and in the lights package ties the header's gamma constant to the partitions' `gamma_correct`. This task contributes AT-01 (effect lists) and part of AT-19 (FR-02, FR-06, FR-07, FR-10, FR-26, FR-33 in part, FR-37, FR-39, NFR-01, NFR-03, NFR-05).
+AC-1 to AC-5 and AC-8 are agent-checkable; AC-6 and AC-7 need the operator after an update over the network to 192.168.1.7. The first risk in the design is `includes:`: if the compile or link fails, stop and tell the user, because the fallback (approach B: the pure header moves unchanged into an external component under `components/mill_disco/`) changes the handbook ladder and this task. The fixed order (0, 1, 2, 3) and the fixed colours (phrase 0) are temporary, and Task 2 replaces them; the shared state is a function-local static with the defaults 120 BPM and 1×, and until Task 3 adds a start, beat 0 sits at boot. This task applies two of the three start rules in the design (the per-slot 333 ms gap and the 60 ms late limit); A comment in the header and in the lights package ties the header's gamma constant to the partitions' `gamma_correct`. This task contributes AT-01 (effect lists) and part of AT-16 (FR-02, FR-06, FR-07, FR-10, FR-16, FR-22 in part, FR-26, FR-28, NFR-01, NFR-03, NFR-05).
 
 ### Task 2: Firing order per bar and colours per phrase
 
@@ -91,7 +91,7 @@ The chase gets the full look of the dusk visualisation. At the start of each bar
 
 **Notes:**
 
-AC-1 to AC-3 are agent-checkable; AC-4 needs the operator and is AT-06 by eye at the fixed 120 BPM, because the tempo controls arrive in Task 5. The hue of slot p in phrase n is (n × 137 + 20 + p × 90) mod 360, with HSL saturation 100% and lightness 55%. At 120 BPM and 1× each order change keeps every gap above 333 ms; the skip of one flash at a bar change when BPM × rate is above 135 can only happen once Task 5 allows 180 BPM, and Task 5 tests it. The light meter check in AT-06 is optional; the fade check from Task 1 covers FR-10 by eye. This task contributes AT-06 (FR-08, FR-09, FR-26).
+AC-1 to AC-3 are agent-checkable; AC-4 needs the operator and is AT-06 by eye at the fixed 120 BPM, because the tempo controls arrive in Task 5. The hue of slot p in phrase n is (n × 137 + 20 + p × 90) mod 360, with HSL saturation 100% and lightness 55%. At 120 BPM and 1× each order change keeps every gap above 333 ms; the skip of one flash at a bar change when BPM × rate is above 135 can only happen once Task 5 allows 180 BPM, and Task 5 tests it. The light meter check in AT-06 is optional; the fade check from Task 1 covers FR-10 by eye. This task contributes AT-06 (FR-08, FR-09, FR-16).
 
 ### Task 3: Disco Mode on and off from HA
 
@@ -146,7 +146,7 @@ HA shows a "Disco Mode" switch that is off after every restart. Turning it on tu
 
 **Notes:**
 
-AC-1 to AC-3 are agent-checkable; AC-4 to AC-8 need the operator. The lamplight script uses effect None, which stops "Disco" at once but still takes the 3 s default fade; every start and every leave cancels any pending lamplight (the start stops it, a leave restarts it, mill-off stops it). Until Task 4, HA does not notice a light that changes during disco, and until Task 7 a short press still runs the mill toggle, so a short press during disco turns the mill off and leaves the switch on; this is a known gap for two tasks. The switch's boot-time turn-off runs the leave, which does nothing while the switch is already off. The handbook layout gains the disco package; this task contributes AT-02 (at the default 120 BPM and 1×), AT-03, AT-18, AT-20 and the peak check of AT-19 (FR-01 in part, FR-03, FR-05, FR-32 for the HA switch, FR-36, FR-37, FR-38, FR-39, NFR-01).
+AC-1 to AC-3 are agent-checkable; AC-4 to AC-8 need the operator. The lamplight script uses effect None, which stops "Disco" at once but still takes the 3 s default fade; every start and every leave cancels any pending lamplight (the start stops it, a leave restarts it, mill-off stops it). Until Task 4, HA does not notice a light that changes during disco (fixed by Task 4). The switch's boot-time turn-off runs the leave, which does nothing while the switch is already off. The handbook layout gains the disco package; this task contributes AT-02 (at the default 120 BPM and 1×), AT-03, AT-15, AT-17 and the peak check of AT-16 (FR-01 in part, FR-03, FR-05, FR-21 for the HA switch, FR-25, FR-26, FR-27, FR-28, NFR-01).
 
 ### Task 4: Disco Mode follows changes to the lights
 
@@ -186,7 +186,7 @@ AC-1 to AC-3 are agent-checkable; AC-4 to AC-8 need the operator. The lamplight 
 
 **Notes:**
 
-AC-1 is agent-checkable; AC-2 to AC-5 need the operator, and AC-4 needs the "Mill Lights" group from the bench README. The check reads each light's target state from `remote_values` and compares its effect name with "Disco"; the leave publishes the switch off first, so the next check does not run it again. With the group, the lights still chasing may start to fade to amber before their own off command arrives; those later off commands win, so all four end dark (FR-35). After this task, a short press during disco (still the mill toggle until Task 7) turns all lights off, and the check then turns the switch off. This task contributes AT-13, AT-15, AT-16 and AT-17 (FR-04, FR-05, FR-33, FR-34, FR-35, FR-36).
+AC-1 is agent-checkable; AC-2 to AC-5 need the operator, and AC-4 needs the "Mill Lights" group from the bench README. The check reads each light's target state from `remote_values` and compares its effect name with "Disco"; the leave publishes the switch off first, so the next check does not run it again. With the group, the lights still chasing may start to fade to amber before their own off command arrives; those later off commands win, so all four end dark (FR-24). After this task, a short press during disco turns all lights off, and the check then turns the switch off. This task contributes AT-09, AT-12, AT-13 and AT-14 (FR-04, FR-05, FR-22, FR-23, FR-24, FR-25).
 
 ### Task 5: Tempo and rate from HA, with the rate guard
 
@@ -241,139 +241,60 @@ HA shows a "Disco BPM" number from 60 to 180 in steps of 0.1 and a "Disco Rate" 
 
 **Notes:**
 
-AC-1 to AC-4 are agent-checkable; AC-5 to AC-8 need the operator. AC-8 checks drift, not the offset, because an HA command carries the network delay; NFR-03's slow-motion video check stays optional. A tempo change re-anchors the clock at "now" with the old tempo first, so the beat count runs on; a rate change keeps the beat count. At a 1/3 s step (90 BPM 2×, 180 BPM 1×) one pixel may skip one flash at a bar change, which spec v1.4 AT-04 allows. If HA shows "½×" or "×" wrong, the design's fallback labels are "1/2x", "1x" and "2x", which is a spec text change to raise with the user. This task contributes AT-01 (entities), AT-04 (by simulation), AT-05, AT-07, NFR-03 by eye and the restore half of AT-18 (FR-01 in part, FR-11, FR-12, FR-13, FR-14, FR-15, FR-26, FR-36, FR-38, NFR-04).
+AC-1 to AC-4 are agent-checkable; AC-5 to AC-8 need the operator. AC-8 checks drift, not the offset, because an HA command carries the network delay; NFR-03's slow-motion video check stays optional. A tempo change re-anchors the clock at "now" with the old tempo first, so the beat count runs on; a rate change keeps the beat count. At a 1/3 s step (90 BPM 2×, 180 BPM 1×) one pixel may skip one flash at a bar change, which spec v1.4 AT-04 allows. If HA shows "½×" or "×" wrong, the design's fallback labels are "1/2x", "1x" and "2x", which is a spec text change to raise with the user. This task contributes AT-01 (entities), AT-04 and AT-08 (by simulation), AT-05, AT-07, NFR-03 by eye and the restore half of AT-15 (FR-01 in part, FR-11, FR-12, FR-13, FR-14, FR-15, FR-16, FR-25, FR-27, NFR-04).
 
-### Task 6: Disco Tap from HA puts the beat on the tap
+
+### Task 6: The Mill Button in disco
 
 - **Status:** Backlog
 - **Blocked by:** Task 5
 
 **What to build:**
 
-HA shows a "Disco Tap" button. With disco on, a press moves the chase so that a beat falls at the moment the press reaches the device, and every later beat falls a whole number of beats after it, without starting a new bar or phrase. All four pixels confirm the tap with one white flash together at the cap for 100 ms, and the chase then continues on the new beat. The white flash wins over the chase: for 1/3 s after a white flash starts, no pixel starts a chase flash and no further white flash shows, but a tap in that time still moves the beat. With disco off, a press starts disco and puts a beat on the tap. A tap does not change the tempo yet. The README "Disco" section adds the button.
-
-**Acceptance criteria:**
-
-**AC-1 (check):**
-- **Given:** The example secrets are in place
-- **When:** The reviewer runs the check script and reads the disco package
-- **Then:** All runs pass; "Disco Tap" (`mill_disco_tap_button`) runs the disco start when the switch is off and then runs the tap script with the current time; the tap script takes the tap time as a parameter and passes it to the glue
-
-**AC-2 (host):**
-- **Given:** A disco state at 60 BPM and 1× with beat 0 at 10 s
-- **When:** The test taps half-way between two beats, and in a second case taps 300 ms before the anchor
-- **Then:** A whole beat falls at each tap time; the beat count moves by at most 0.5; the bar and phrase follow on from the beat count with no reset to a bar start; and the tap before the anchor gives the floored bar and phrase
-
-**AC-3 (host):**
-- **Given:** A disco state at 180 BPM and 1×
-- **When:** The test taps once, taps again 200 ms later, and in a second case stops and starts disco 100 ms after a tap
-- **Then:** After the first tap all four slots output only white (white channel 255) for 100 ms from the tap; no slot starts a chase flash less than 333 ms after the white start; the second tap moves the beat but shows no white flash; and the restart shows no white flash less than 333 ms after the first
-
-**AC-4 (host):**
-- **Given:** The simulation at 180 BPM and 1×
-- **When:** It taps 8 times 250 ms apart and then runs 5 s with no input
-- **Then:** White flashes start at least 333 ms apart and at least one tap shows no white flash; no chase flash starts less than 333 ms after a white start; every gap between two chase starts on one slot is at least 333 ms; no chase start is more than 60 ms late; after the last tap no quarter step has more than one start
-
-**AC-5 (device):**
-- **Given:** The operator has updated the device, the sails turn, and "Disco Mode" is on at 60 BPM and 1×
-- **When:** The operator presses "Disco Tap" in HA once and watches for 10 s
-- **Then:** All four pixels flash white together within 1 s of the press, and the chase then continues with the next on-beat flash about 1 s after the white flash; the colours, "Disco BPM", the sails and the on state of the four lights do not change, and HA still shows "Disco Mode" on
-
-**AC-6 (device):**
-- **Given:** The mill is on in the lamplight look with the sails turning, and "Disco Mode" is off
-- **When:** The operator presses "Disco Tap" in HA once and watches for 10 s
-- **Then:** Within 1 s all four pixels flash white together and then start the chase; within 5 s HA shows "Disco Mode" on and all four lights with the effect "Disco"; the sails keep turning at the same speed and direction
-
-**AC-7 (device):**
-- **Given:** "Disco Mode" is off and all four lights are in the lamplight look, with the sails turning at 170 steps/s
-- **When:** The operator times 5 full turns, then turns on "Disco Mode" at 180 BPM and 1× and times 5 more turns while pressing "Disco Tap" in HA 5 times; and then repeats both timings at the highest safe Sail Speed from the bench-firmware speed sweep
-- **Then:** At each speed the two times are within 2% of each other
-
-**Notes:**
-
-AC-1 to AC-4 are agent-checkable; AC-5 to AC-7 need the operator. The tap time of an HA press is the moment it reaches the device, and the white start is "now", so the white flash shows within 16 ms to 32 ms of it (FR-18 allows 50 ms); the 60 ms late limit stops the chase starts that the snap moves into the past from showing as a late flash. The white start sits in the one shared state, so the four effects agree, within one frame (at most 32 ms). The start function now also keeps a recent white start, so a quick off and on cannot show white again within 1/3 s. Tap-run tempo (FR-19 to FR-22) comes in Task 8; this task contributes AT-08 (HA part), AT-09 (HA part by eye), AT-11 (taps by simulation), AT-12 and NFR-02 (FR-01 in part, FR-16, FR-18, FR-23, FR-24, FR-25, FR-26, FR-36, NFR-02, NFR-04).
-
-### Task 7: The Mill Button taps and leaves disco
-
-- **Status:** Backlog
-- **Blocked by:** Task 4, Task 6
-
-**What to build:**
-
-While "Disco Mode" is on, a short press of the Mill Button is a tap: the beat falls at the moment the button went down, whatever the press length, and the white flash shows within 100 ms of release; the sails and the on or off state of the lights do not change. A long press turns "Disco Mode" off, so the lights return to the lamplight look and the sails keep their state and direction, and the button logs one line that it left disco. Other press lengths do nothing. All of this works without WiFi or HA, so a long press and then a short press always stop the whole mill. Outside disco, the button acts as before. The README, the `spec.md` button description and the wiring guide describe the button in disco, the stop path without the network, and the disco bench checks by eye.
+While "Disco Mode" is on, a long press of the Mill Button turns "Disco Mode" off, so the four lights return to the lamplight look within 4 s and the sails keep their state, speed and direction, with no reversal; the button logs one line that it left disco. A short press does what it does outside disco: it turns the mill off, so the sails stop and all four lights fade off, and the disco check then turns "Disco Mode" off. Other press lengths do nothing. All of this works without WiFi or HA, so one short press always stops the whole mill. Outside disco, the button acts as before. The README, the `spec.md` button description and the wiring guide describe the button in disco and the disco bench checks by eye. The task ends with the final review of the safety invariants.
 
 **Acceptance criteria:**
 
 **AC-1 (check):**
 - **Given:** The example secrets are in place
 - **When:** The reviewer runs the check script and the check-script test suite
-- **Then:** All runs pass; "Mill Button" has an `on_press` handler that stores the press time 20 ms earlier than the handler runs, and then two click ranges and no other handler; the 50–500 ms range taps with the stored press time while "Disco Mode" is on and runs the mill toggle otherwise; the 1–5 s range turns "Disco Mode" off and logs "Button: disco off" while it is on and runs the reverse otherwise; the controls-scripts test now expects 4 `logger.log` calls in the controls package (3 before this task), all at INFO with the tag `mill.controls`; and its header comment lists `mill_disco_mode`, `mill_disco_tap` and `mill_lamplight`
+- **Then:** All runs pass; "Mill Button" still has `on_click` as its only handler, with no `on_press`, and exactly two click ranges; the 50–500 ms range runs only the mill toggle, as before; the 1–5 s range holds an `if` on `mill_disco_mode` that turns "Disco Mode" off and logs "Button: disco off" while it is on, and runs the reverse otherwise; mill-off names no disco id; the controls-scripts test now expects 4 `logger.log` calls in the controls package (3 before this task), all at INFO with the tag `mill.controls`; and the button test's header word list adds `mill_disco_mode` and `mill_lamplight`
 
-**AC-2 (host):**
-- **Given:** A disco state at 60 BPM and 1×
-- **When:** The test taps with a tap time 400 ms before "now"
-- **Then:** A whole beat falls at the tap time, so the next on-beat start is 1000 ms after the tap time; the white flash starts at "now"; and no chase start that the snap moved into the past shows
+**AC-2 (device):**
+- **Given:** The operator has updated the device, HA is connected, the sails turn forward (anticlockwise), "Disco Mode" is on, and the network log is open
+- **When:** The operator holds the button about 0.7 s, then about 6 s, then about 2 s, and watches for 10 s after each
+- **Then:** The 0.7 s and 6 s holds change nothing; after the 2 s hold all four lights show the lamplight look within 4 s, with "Mill Door Lamp" steady; the sails keep turning anticlockwise without a pause; within 5 s HA shows "Disco Mode" off with "Sails Turning" and "Reverse Rotation" unchanged; the log shows "Button: disco off" under the tag `mill.controls`
 
 **AC-3 (device):**
-- **Given:** The operator has updated the device, the sails turn and "Disco Mode" is on at 60 BPM and 1×, and a metronome app plays 60 BPM aloud
-- **When:** The operator short-presses the button half-way between two beats and watches 10 s; then presses it on a click, holds it about 400 ms, and watches 10 s
-- **Then:** After each press all four pixels flash white together, after the release and no later than about 100 ms after it, and the chase continues; after the second press the on-beat flash falls on the clicks and not about 400 ms late; the colours, "Disco BPM", the sails and the on state of the four lights do not change
+- **Given:** HA is connected, the sails turn and "Disco Mode" is on
+- **When:** The operator short-presses the button once and watches for 10 s
+- **Then:** The sails stop within 1 s of the release; all four pixels are dark within 4 s and stay dark, with no light coming back in the lamplight look; within 5 s HA shows "Disco Mode", "Sails Turning" and all four lights off
 
 **AC-4 (device):**
-- **Given:** HA is connected, the sails turn forward (anticlockwise) and "Disco Mode" is on
-- **When:** The operator holds the button about 0.7 s, then about 6 s, then about 2 s, watching after each; turns "Disco Mode" on again in HA; switches off the WiFi access point; short-presses once; holds about 2 s; short-presses again; then switches the access point on again
-- **Then:** The 0.7 s and 6 s holds change nothing; after the first 2 s hold all four lights show the lamplight look within 4 s, the sails keep turning anticlockwise, and HA shows "Disco Mode" off with "Reverse Rotation" unchanged; with the access point off, the short press shows the white flash and the chase continues, the 2 s hold returns the lamplight look with the sails still turning, and the next short press stops the sails within 1 s of release and the pixels are dark within 4 s; within 5 minutes of the access point returning, HA shows "Disco Mode", "Sails Turning" and all four lights off
+- **Given:** HA is connected, the sails turn anticlockwise and "Disco Mode" is on
+- **When:** The operator switches off the WiFi access point and watches 10 s; holds the button about 0.7 s; holds it about 2 s and watches 10 s; switches the access point on, waits for HA to reconnect and turns "Disco Mode" on in HA; switches the access point off; short-presses once and watches 10 s; then switches the access point on again
+- **Then:** With the access point off, the chase keeps running, the 0.7 s hold changes nothing, and the 2 s hold returns the lamplight look within 4 s with the sails still turning anticlockwise; the short press stops the sails within 1 s of release and the pixels are dark within 4 s; within 5 minutes of the access point returning, HA shows "Disco Mode", "Sails Turning" and all four lights off
 
 **AC-5 (device):**
 - **Given:** "Disco Mode" is off and the mill is off
 - **When:** The operator short-presses the button, holds it about 2 s, and short-presses it again
 - **Then:** The mill turns on in the lamplight look, the sails reverse without a stop, and the mill turns off, as before this feature
 
-**AC-6 (check):**
+**AC-6 (device):**
+- **Given:** "Disco Mode" is off and all four lights are in the lamplight look, with the sails turning at 170 steps/s
+- **When:** The operator times 5 full turns with a stopwatch, then turns on "Disco Mode" at 180 BPM and 1× and times 5 more turns; and then repeats both timings at the highest safe Sail Speed from the bench-firmware speed sweep
+- **Then:** At each speed the two times are within 2% of each other
+
+**AC-7 (check):**
 - **Given:** The README, `spec.md` and the wiring guide
-- **When:** The reviewer reads their button and bench-check sections
-- **Then:** Each says that in disco a short press is a tap and a long press leaves disco, that the button does not start disco, and that a long press then a short press stops the mill with no network; `spec.md` and the wiring guide list the disco bench checks by eye
+- **When:** The reviewer reads their button, disco and bench-check sections
+- **Then:** Each says that in disco a short press turns the mill off and ends disco, a long press leaves disco to the lamplight look without reversing the sails, other presses do nothing, the button does not start disco, and the button acts the same with no network; `spec.md` and the wiring guide list the disco bench checks by eye; none mentions a tap or a "Disco Tap" button
+
+**AC-8 (check):**
+- **Given:** All disco files: the node file, the lights, disco and controls packages, and both headers
+- **When:** The reviewer checks them against handbook invariants 1 and 2 and the package and header comments
+- **Then:** Every disco pixel write is `it[0]` inside a partition effect; no disco file names the strip or uses `addressable_set`; "Disco Mode" and the four lights are off after every restart, and "Disco BPM" and "Disco Rate" do not restore; the BPM range and the rate guard allow no step shorter than 1/3 s; `includes:` appears only in the node file; and each new file starts with the ids it exposes and uses
 
 **Notes:**
 
-AC-1, AC-2 and AC-6 are agent-checkable; AC-3 to AC-5 need the operator, and AC-4 needs the WiFi access point switched off and on. The 20 ms subtracted in `on_press` is the button's `delayed_on_off` filter, and `on_click` fires 20 ms after release, so the white flash shows at most about 52 ms after release (FR-24 allows 100 ms). The 500 ms to 1 s and over 5 s gaps need no handler, because no click range covers them (FR-29). The long press only turns the switch off, so the switch's own leave runs, which cancels nothing on the sails. This task contributes AT-08 (button part), AT-09 (button part by eye) and AT-14 (FR-17, FR-24, FR-27, FR-28, FR-29, FR-30, FR-31, FR-32 for the long press, FR-36).
-
-### Task 8: A tap run sets the tempo
-
-- **Status:** Backlog
-- **Blocked by:** Task 7
-
-**What to build:**
-
-When the operator taps steadily, from the Mill Button or from HA, the taps set "Disco BPM". A tap run is a series of taps no more than 1.2 s apart; a longer pause starts a new run. When at least 4 taps of the run fall within the 3.5 s that end at the latest tap, the tempo becomes the average spacing of the latest taps in that window, at most 8 taps, clamped to 60–180 BPM. Fewer than 4 taps move only the beat. A new tempo shows in HA within 5 s and logs one line, and if it rises above 90 BPM at 2×, the rate guard drops the rate to 1× and HA shows it. This completes the tap function and the README "Disco" section.
-
-**Acceptance criteria:**
-
-**AC-1 (host):**
-- **Given:** A disco state at 120 BPM and 1×, with at least 3 s between the parts
-- **When:** The test taps 3 times at 80 BPM; 4 times at 60 BPM; 8 times at 60, 55 and 180 BPM; 8 times 250 ms apart; 4 times at 100 BPM, pauses 2 s and taps 4 times at 140 BPM; and, at 80 BPM and 2×, 8 times at 120 BPM
-- **Then:** After the 3 taps the tempo stays 120 and no tempo change is reported; the 4 and 8 taps at 60 BPM give 60; 55 BPM gives 60; 180 BPM gives 180; 250 ms gives 180; the split run gives 140 from the second run only; the last run gives 120 and reports the drop to 1×
-
-**AC-2 (host):**
-- **Given:** The simulation at 180 BPM and 1×
-- **When:** It taps 8 times 250 ms apart with tap runs active and then runs 5 s with no input
-- **Then:** The tempo ends at 180, and every flash-limit result of Task 6 AC-4 still holds
-
-**AC-3 (check):**
-- **Given:** The example secrets are in place
-- **When:** The reviewer runs the check script and reads the tap script and the package and header comments
-- **Then:** All runs pass; after a tap the script publishes "Disco BPM" and logs "Tap: BPM x" at INFO with the tag `mill.disco` only when the tempo changed, and publishes "1×" on "Disco Rate" only when the guard dropped 2×; no disco file names the strip or uses `addressable_set`; `includes:` appears only in the node file; and each new file starts with the ids it exposes and uses
-
-**AC-4 (device):**
-- **Given:** The operator has updated the device, HA is connected, "Disco Mode" is on at 120 BPM and 1×, and a metronome app is at hand
-- **When:** With the Mill Button, the operator taps 3 times at 80 BPM; taps 8 times at 60 BPM; taps 8 times at 180 BPM; then sets 80 BPM and 2× in HA and taps 8 times at 120 BPM, waiting at least 3 s between parts and reading HA after each
-- **Then:** After the 3 taps HA still shows 120; within 5 s of each other run HA shows about 60, about 180, and about 120 with "Disco Rate" changed to 1×; the chase follows each new tempo
-
-**AC-5 (device):**
-- **Given:** "Disco Mode" is on at 120 BPM and 1×
-- **When:** The operator presses "Disco Tap" in HA 8 times at a steady rate of about 1 a second
-- **Then:** Within 5 s HA shows "Disco BPM" near 60, with the error that the network delay brings
-
-**Notes:**
-
-AC-1 to AC-3 are agent-checkable; AC-4 and AC-5 need the operator, and AC-4 is AT-10 by eye with a shortened list of runs (the host test covers the full list). The tempo is 60000 × (n − 1) ÷ (latest tap − first of the n taps) for the latest n taps in the window, with n from 4 to 8; the run holds at most 8 taps, so a tap never loops more than 8 times. A drop to 1× from a tap run follows FR-15: the rate stays 1× until the operator selects 2× again. There is no log line per tap, only when the tempo changes. This task contributes AT-10, the tap-run part of AT-11 and the final NFR-01 review (FR-14, FR-19, FR-20, FR-21, FR-22, FR-36, NFR-01, NFR-04).
+AC-1, AC-7 and AC-8 are agent-checkable; AC-2 to AC-6 need the operator, and AC-4 needs the WiFi access point switched off and on. The short-press range does not change: while disco is on all four lights are on, so the toggle always runs mill-off; the next 250 ms check then finds all four lights off and runs the disco leave with mask 0, which publishes "Disco Mode" off and sets no light. This keeps HA true well within 5 s, and mill-off needs no disco id. The long press only turns the switch off, so the switch's own leave runs with mask 15 and touches nothing on the sails. The 500 ms to 1 s and over 5 s gaps need no handler, because no click range covers them (FR-19). The controls package log count becomes 4 because the long press in disco logs "Button: disco off"; a short press in disco logs "Button: mill off" as before. `include/` has no tap code to remove: `mill_disco.h` and `mill_disco_esphome.h` hold no tap, tap run, white flash or button-press time (checked 2026-10-03), and the white channel of the RGBW output is always 0. This task contributes AT-10, AT-11, NFR-02 and the final NFR-01 review (FR-17, FR-18, FR-19, FR-20, FR-21 for the long press, FR-25, NFR-01, NFR-02, NFR-04, NFR-05).
