@@ -321,17 +321,54 @@ test_sails_rearm() {
   local package rearm repeat direction resolved
   package=$(cat "$repo/packages/mill_sails.yaml" 2> /dev/null || true)
   rearm=$(flat "$(item_key "$(list_item "$(section script "$package")" '^  - id: mill_sails_rearm$')" then)")
-  expect_setting "re-arm script re-bases to 0, then aims 10,000,000 steps forward" "$rearm" \
-    '^ ?- stepper\.report_position: id: mill_sails position: 0 - stepper\.set_target: id: mill_sails target: !lambda "return \$\{sails_forward_direction\} \* 10000000;" ?$'
+  expect_setting "re-arm script re-bases to 0, then aims 10,000,000 steps in the chosen direction" "$rearm" \
+    '^ ?- stepper\.report_position: id: mill_sails position: 0 - stepper\.set_target: id: mill_sails target: !lambda "return \$\{sails_forward_direction\} \* \(id\(mill_sails_reverse\) \? -1 : 1\) \* 10000000;" ?$'
   [[ $config_status -ne 0 ]] && return
   direction=$(sed -En "s/^  sails_forward_direction: '?(-?1)'?$/\1/p" <<< "$(section substitutions)")
   resolved=$(flat "$(list_item "$(section script)" '^  - id: mill_sails_rearm$')")
-  expect_setting "re-arm target resolves to the forward direction times 10,000,000" "$resolved" \
-    "target: !lambda \|- return ${direction:-unset} \* 10000000;"
+  expect_setting "re-arm target resolves to the forward direction times the reverse sign times 10,000,000" \
+    "$resolved" "target: !lambda \|- return ${direction:-unset} \* \(id\(mill_sails_reverse\) \? -1 : 1\) \* 10000000;"
   repeat=$(flat "$(list_item "$(section interval)" '^  - interval: 10min$')")
   expect_setting "an interval runs every 10 minutes" "$repeat" '^ ?- interval: 10min '
   expect_setting "the interval re-arms the sails only while Sails Turning is on" "$repeat" \
     '^ ?- interval: 10min then: - if: condition: switch\.is_on: id: mill_sails_turn then: - script\.execute: id: mill_sails_rearm( startup_delay: [0-9a-z]+)? ?$'
+}
+
+test_sails_reverse() {
+  local package header word missing="" global reverse calls expected action found
+  package=$(cat "$repo/packages/mill_sails.yaml" 2> /dev/null || true)
+  header=$(awk '!/^#/ { exit } 1' <<< "$package")
+  for word in mill_sails_reverse mill_sails_reverse_switch; do
+    grep -qw -- "$word" <<< "$header" || missing+=" $word"
+  done
+  if [[ -n $header && -z $missing ]]; then
+    pass "sails package comment lists the direction ids"
+  else
+    fail "sails package comment lists the direction ids" "missing:${missing:- the comment}"
+  fi
+  [[ $config_status -ne 0 ]] && return
+  global=$(list_item "$(section globals)" '^  - id: mill_sails_reverse$')
+  expect_setting "direction global is a bool" "$global" '^    type: bool$'
+  expect_setting "direction global starts false" "$global" "^    initial_value: '?false'?$"
+  expect_setting "direction global is not restored" "$global" '^    restore_value: false$'
+  reverse=$(list_item "$(section switch)" "^    name: '?Reverse Rotation'?$")
+  expect_setting "Reverse Rotation has id mill_sails_reverse_switch" "$reverse" '^    id: mill_sails_reverse_switch$'
+  expect_setting "Reverse Rotation is optimistic" "$reverse" '^    optimistic: true$'
+  expect_setting "Reverse Rotation boots off" "$reverse" '^    restore_mode: ALWAYS_OFF$'
+  calls=$(action_calls - <<< "$config")
+  expected=""
+  # The validated config puts each action list under "then".
+  for action in turn_on_action:true turn_off_action:false; do
+    expected+="${expected:+$'\n'}${action%:*}/then globals.set id=mill_sails_reverse;value=${action#*:}"
+    expected+=$'\n'"${action%:*}/then/if/condition switch.is_on id=mill_sails_turn"
+    expected+=$'\n'"${action%:*}/then/if/then script.execute id=mill_sails_rearm"
+  done
+  expect_same "Reverse Rotation sets the direction global, then re-arms only while Sails Turning is on" \
+    "$expected" "$(awk -F '\t' '$1 == "switch/mill_sails_reverse_switch" { print $2 " " $3 " " $4 }' <<< "$calls")"
+  found=$(awk -F '\t' '$1 != "switch/mill_sails_reverse_switch" &&
+    (($3 == "globals.set" && $4 ~ /(^|;)id=mill_sails_reverse(;|$)/) ||
+     ($3 ~ /^switch\.(turn_on|turn_off|toggle)$/ && $4 ~ /(^|;)id=mill_sails_reverse_switch(;|$)/))' <<< "$calls")
+  expect_same "nothing but Reverse Rotation changes the direction" "" "$found"
 }
 
 # long_lambdas FILE... prints the first line of each lambda in FILE that spans
@@ -875,6 +912,8 @@ test_controls_boundaries() {
   text=$(sed -E 's/(^|[[:space:]])#.*$//' "$package")
   found=$(grep -n 'mill_sails_reverse' "$package" || true)
   expect_same "controls package does not name the direction global" "" "$found"
+  found=$(grep -nE 'mill_sails_reverse_switch|Reverse Rotation' "$package" || true)
+  expect_same "controls package does not name the Reverse Rotation switch" "" "$found"
   found=$(grep -n 'homeassistant' <<< "$text" || true)
   expect_same "controls package makes no call to Home Assistant" "" "$found"
   found=$( (strip_writes "$package"; grep -n 'mill_pixels' <<< "$text") || true)
@@ -905,6 +944,7 @@ test_sails_settings
 test_sail_speed_settings
 test_sail_speed_rounding
 test_sails_rearm
+test_sails_reverse
 test_lambdas_are_short
 test_packages_hold_no_node_config
 test_no_strip_writes

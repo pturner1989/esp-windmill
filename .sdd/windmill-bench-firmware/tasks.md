@@ -360,7 +360,7 @@ AC-1 is agent-checkable; AC-2 to AC-4 need the operator, who must be able to swi
 
 ### Task 9: Bench option with reverse rotation
 
-- **Status:** Backlog
+- **Status:** Done in reshaped form: permanent Reverse Rotation switch, no bench package (user decision 2026-10-03); operator check pending
 - **Blocked by:** Task 8
 
 **What to build:**

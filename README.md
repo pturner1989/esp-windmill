@@ -96,6 +96,15 @@ The sails must turn anticlockwise when you look from the sail side. The substitu
    `windmill.yaml` (or back to `"1"` if it is already `"-1"`). Then update over the network
    (see "First USB flash and OTA").
 
+## Sail direction
+
+The "Reverse Rotation" switch in HA sets the sail direction. When it is off, the sails turn
+forward; when it is on, they turn the other way. Switch it while the sails turn and they reverse at
+once, and "Sails Turning" stays on. Switch it while they are stopped and it only sets the direction
+for the next start. The Mill Button never changes it. The switch is off after every restart, so the
+sails always start forward. `sails_forward_direction` (see "Forward direction") still sets which way
+is forward. Keep "Reverse Rotation" off when you check the forward direction.
+
 ## HA light groups
 
 The firmware gives HA four lights, one for each pixel: "Mill Door Lamp" (pixel 0),

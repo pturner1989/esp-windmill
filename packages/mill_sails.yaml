@@ -2,7 +2,16 @@
 # Needs substitutions: sails_pin_a, sails_pin_b, sails_pin_c, sails_pin_d
 #   (ULN2003 IN1 to IN4) and sails_forward_direction ("1" or "-1").
 # Exposes ids: mill_sails (stepper), mill_sails_turn (switch "Sails Turning"),
-#   mill_sail_speed (number "Sail Speed"), mill_sails_rearm (script).
+#   mill_sail_speed (number "Sail Speed"), mill_sails_rearm (script),
+#   mill_sails_reverse (global, true while reversed) and
+#   mill_sails_reverse_switch (switch "Reverse Rotation").
+
+# The sail direction. It starts forward at every boot.
+globals:
+  - id: mill_sails_reverse
+    type: bool
+    initial_value: "false"
+    restore_value: false
 
 stepper:
   - platform: uln2003
@@ -37,6 +46,32 @@ switch:
           id: mill_sails
           target: !lambda "return id(mill_sails).current_position;"
 
+  # Sets the direction. While the sails turn, the re-arm reverses them at once.
+  # While they are stopped, it only sets the direction for the next start.
+  - platform: template
+    name: Reverse Rotation
+    id: mill_sails_reverse_switch
+    optimistic: true
+    restore_mode: ALWAYS_OFF
+    turn_on_action:
+      - globals.set:
+          id: mill_sails_reverse
+          value: "true"
+      - if:
+          condition:
+            switch.is_on: mill_sails_turn
+          then:
+            - script.execute: mill_sails_rearm
+    turn_off_action:
+      - globals.set:
+          id: mill_sails_reverse
+          value: "false"
+      - if:
+          condition:
+            switch.is_on: mill_sails_turn
+          then:
+            - script.execute: mill_sails_rearm
+
 number:
   - platform: template
     name: Sail Speed
@@ -67,8 +102,8 @@ number:
                 value: !lambda "return std::floor((x + 5) / 10) * 10;"
 
 script:
-  # Re-base to 0, then aim far ahead. Both calls run in one loop pass, so no
-  # step falls between them.
+  # Re-base to 0, then aim far ahead in the chosen direction. Both calls run
+  # in one loop pass, so no step falls between them.
   - id: mill_sails_rearm
     then:
       - stepper.report_position:
@@ -76,7 +111,7 @@ script:
           position: 0
       - stepper.set_target:
           id: mill_sails
-          target: !lambda "return ${sails_forward_direction} * 10000000;"
+          target: !lambda "return ${sails_forward_direction} * (id(mill_sails_reverse) ? -1 : 1) * 10000000;"
 
 # Re-arm every 10 minutes while the sails turn, so they never reach their
 # target. At 320 steps/s one span lasts about 8.7 h.
