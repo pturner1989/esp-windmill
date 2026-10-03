@@ -2,13 +2,17 @@
 # lights. It never names the sails, so turning sails keep turning at the same
 # speed and direction, and stopped sails stay stopped.
 # Exposes ids: mill_disco_mode (switch "Disco Mode"),
-#   mill_disco_start (script), mill_disco_leave (script).
+#   mill_disco_start (script), mill_disco_leave (script, takes a light mask).
 # Uses ids: mill_door_glow, mill_stone_window, mill_bin_window, mill_door_lamp
-#   and mill_lamplight (script) from the lights package. The lambda calls
-#   mill_disco::start_now() from include/mill_disco_esphome.h.
+#   and mill_lamplight (script) from the lights package. The lambdas call
+#   mill_disco::start_now(), any_left(), any_disco() and disco_mask() from
+#   include/mill_disco_esphome.h.
 # The switch is not optimistic: only the two scripts publish its state, so HA
 # sees only the true state. It is off after every restart. Its boot-time
 # turn-off runs the leave, which does nothing while the switch is off.
+# A check every 250 ms keeps the switch true to the lights: a light that picks
+# "Disco" starts disco on all four, and a light that is turned off or picks
+# another effect ends it.
 
 switch:
   - platform: template
@@ -19,7 +23,9 @@ switch:
     turn_on_action:
       - script.execute: mill_disco_start
     turn_off_action:
-      - script.execute: mill_disco_leave
+      - script.execute:
+          id: mill_disco_leave
+          mask: 15
 
 script:
   # Beat 0 now, then all four lights on at full brightness with "Disco". A
@@ -57,9 +63,13 @@ script:
                 level: INFO
                 tag: mill.disco
 
-  # All four lights take the lamplight look, also a light that was off before
-  # disco. The lamplight script restarts, so a pending lamplight ends.
+  # The lights in `mask` (bit n is pixel n) take the lamplight look, also a
+  # light that was off before disco. The switch turns off first, so the next
+  # check does not leave again. The lamplight script restarts, so a pending
+  # lamplight ends.
   - id: mill_disco_leave
+    parameters:
+      mask: int
     then:
       - if:
           condition:
@@ -70,8 +80,42 @@ script:
                 state: false
             - script.execute:
                 id: mill_lamplight
-                mask: 15
+                mask: !lambda "return mask;"
             - logger.log:
                 format: "Disco off"
                 level: INFO
                 tag: mill.disco
+
+interval:
+  # Keep "Disco Mode" true to the lights. Each check reads the target state
+  # that HA shows. The mask of the lights still on with "Disco" is taken
+  # before the leave changes any light, so the light the operator changed
+  # keeps what the operator asked, and only the others take the lamplight
+  # look. After a start, all four lights are on with "Disco". After a leave,
+  # no light has "Disco": the lamplight fade uses effect None, then Lamplight.
+  # So the next check finds nothing to do, also during the 3 s fade.
+  - interval: 250ms
+    then:
+      - if:
+          condition:
+            switch.is_on: mill_disco_mode
+          then:
+            - if:
+                condition:
+                  lambda: |-
+                    return mill_disco::any_left({id(mill_door_lamp), id(mill_door_glow),
+                                                 id(mill_stone_window), id(mill_bin_window)});
+                then:
+                  - script.execute:
+                      id: mill_disco_leave
+                      mask: !lambda |-
+                        return mill_disco::disco_mask({id(mill_door_lamp), id(mill_door_glow),
+                                                       id(mill_stone_window), id(mill_bin_window)});
+          else:
+            - if:
+                condition:
+                  lambda: |-
+                    return mill_disco::any_disco({id(mill_door_lamp), id(mill_door_glow),
+                                                  id(mill_stone_window), id(mill_bin_window)});
+                then:
+                  - script.execute: mill_disco_start

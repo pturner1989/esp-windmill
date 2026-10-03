@@ -719,9 +719,9 @@ test_light_effects() {
 # The owner is the top-level key and the id of its list entry, for example
 # script/mill_toggle. The path is the chain of keys from that entry down to
 # the call, for example then/if/condition/or. A call is a key with a dot in it
-# (light.turn_on) or a delay or lambda key. A plain value prints as it is; a
-# mapping prints its plain values as key=value pairs joined by ";". Comments
-# are not read.
+# (light.turn_on) or a delay or lambda key. A plain value prints on one line,
+# with each run of spaces and line breaks as one space; a mapping prints its
+# plain values as key=value pairs joined by ";". Comments are not read.
 action_calls() {
   # The script comes from -c, so that standard input stays free for "-".
   python3 -c "$(cat << 'PY'
@@ -734,11 +734,15 @@ def scalar(node):
     return isinstance(node, yaml.ScalarNode)
 
 
+def one_line(text):
+    return " ".join(str(text).split())
+
+
 def arguments(node):
     if scalar(node):
-        return node.value.strip().splitlines()[0] if node.value.strip() else ""
+        return one_line(node.value)
     if isinstance(node, yaml.MappingNode):
-        return ";".join(f"{k.value}={v.value}" for k, v in node.value if scalar(v))
+        return ";".join(f"{k.value}={one_line(v.value)}" for k, v in node.value if scalar(v))
     return ""
 
 
@@ -960,6 +964,29 @@ test_disco_mode() {
     "$expected" "$(grep '^light\.' <<< "$start" || true)"
 }
 
+test_disco_follows_lights() {
+  [[ $config_status -ne 0 ]] && return
+  local lights check calls expected
+  # The four lights in pixel order, so bit n of a mask is pixel n.
+  lights="{id(mill_door_lamp), id(mill_door_glow), id(mill_stone_window), id(mill_bin_window)}"
+  check=$(list_item "$(section interval)" '^  - interval: 250ms$')
+  calls=$(action_calls - <<< "interval:"$'\n'"$check" | cut -f 2-)
+  expected="then/if/condition"$'\t'"switch.is_on"$'\t'"id=mill_disco_mode"
+  expected+=$'\n'"then/if/then/if/condition"$'\t'"lambda"$'\t'"return mill_disco::any_left($lights);"
+  expected+=$'\n'"then/if/then/if/then"$'\t'"script.execute"$'\t'"id=mill_disco_leave;mask=return mill_disco::disco_mask($lights);"
+  expected+=$'\n'"then/if/else/if/condition"$'\t'"lambda"$'\t'"return mill_disco::any_disco($lights);"
+  expected+=$'\n'"then/if/else/if/then"$'\t'"script.execute"$'\t'"id=mill_disco_start"
+  expect_same "every 250 ms, a light that leaves Disco ends disco, and a light that picks Disco starts it" \
+    "$expected" "$calls"
+  expect_setting "the leave takes an integer mask" \
+    "$(flat "$(list_item "$(section script)" '^  - id: mill_disco_leave$')")" ' parameters: mask: int '
+  expect_same "the leave turns the switch off, then gives the lamplight look to the lights in its mask" \
+    $'switch.template.publish id=mill_disco_mode;state=false\nscript.execute id=mill_lamplight;mask=return mask;' \
+    "$(calls_of script/mill_disco_leave then/if/then | grep -v '^logger\.')"
+  expect_same "turning Disco Mode off leaves disco on all four lights" \
+    "script.execute id=mill_disco_leave;mask=15" "$(calls_of switch/mill_disco_mode turn_off_action/then)"
+}
+
 test_controls_boundaries() {
   local package text found ids id outside=""
   package="$repo/packages/mill_controls.yaml"
@@ -1019,6 +1046,7 @@ test_controls_button
 test_controls_scripts
 test_lamplight_script
 test_disco_mode
+test_disco_follows_lights
 test_controls_boundaries
 
 echo "$passed passed, $failed failed"

@@ -150,7 +150,7 @@ AC-1 to AC-3 are agent-checkable; AC-4 to AC-8 need the operator. The lamplight 
 
 ### Task 4: Disco Mode follows changes to the lights
 
-- **Status:** Backlog
+- **Status:** Done (agent checks); device ACs pending user
 - **Blocked by:** Task 3
 
 **What to build:**
