@@ -5,7 +5,7 @@
 
 ### Task 1: A Disco effect on each light, at a fixed tempo
 
-- **Status:** Backlog
+- **Status:** Done (agent checks); device ACs pending user
 - **Blocked by:** None
 
 **What to build:**

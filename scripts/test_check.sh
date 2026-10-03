@@ -25,12 +25,20 @@ for dir in "${path_dirs[@]}"; do
 done
 
 # make_stubs DIR TOOL... writes a stub for each TOOL that logs its arguments.
+# The g++ stub also writes a stub program at its -o path that logs its path.
 make_stubs() {
   local dir=$1 tool
   shift
   mkdir -p "$dir"
   for tool in "$@"; do
     printf '#!/usr/bin/env bash\necho "%s $*" >> "%s"\n' "$tool" "$work/calls" > "$dir/$tool"
+    if [[ $tool == g++ ]]; then
+      cat >> "$dir/$tool" << STUB
+out=\$(sed -n 's/.* -o \([^ ]*\).*/\1/p' <<< "\$*")
+printf '#!/usr/bin/env bash\necho "\$0" >> "%s"\n' "$work/calls" > "\$out"
+chmod +x "\$out"
+STUB
+    fi
     chmod +x "$dir/$tool"
   done
 }
@@ -43,7 +51,7 @@ new_repo() {
   mkdir -p "$dir/scripts"
   cp -p "$repo/scripts/check.sh" "$dir/scripts/"
   cp "$repo/windmill.yaml" "$repo/secrets.example.yaml" "$repo/.gitignore" "$dir/"
-  cp -r "$repo/packages" "$dir/"
+  cp -r "$repo/packages" "$repo/include" "$repo/tests" "$dir/"
   git -C "$dir" init -q
   if [[ ${1:-} == with-secrets ]]; then
     cp "$dir/secrets.example.yaml" "$dir/secrets.yaml"
@@ -90,18 +98,20 @@ test_tool_versions() {
 }
 
 test_full_pass_with_stubs() {
-  local dir expected
+  local dir expected name="check builds and runs the header tests, then lints, validates and compiles"
   dir=$(new_repo with-secrets)
-  run_check "$dir" esphome yamllint
-  expected=$'yamllint -s .\nesphome config windmill.yaml\nesphome compile windmill.yaml'
+  run_check "$dir" esphome yamllint g++
+  expected="g++ -std=c++17 -Wall -Wextra -Werror -Iinclude tests/mill_disco_test.cpp"
+  expected+=$' -o .esphome/host-tests/mill_disco_test\n.esphome/host-tests/mill_disco_test'
+  expected+=$'\nyamllint -s .\nesphome config windmill.yaml\nesphome compile windmill.yaml'
   if [[ $status -ne 0 ]]; then
-    fail "check runs lint, config and compile" "exit status $status. Output: $output"
+    fail "$name" "exit status $status. Output: $output"
   elif [[ $calls != "$expected" ]]; then
-    fail "check runs lint, config and compile" "calls were: $calls"
+    fail "$name" "calls were: $calls"
   elif grep -qi "bench" <<< "$output"; then
-    fail "check runs lint, config and compile" "output mentions the dropped bench option: $output"
+    fail "$name" "output mentions the dropped bench option: $output"
   else
-    pass "check runs lint, config and compile"
+    pass "$name"
   fi
 }
 
@@ -249,6 +259,8 @@ test_node_settings() {
   expect_setting "access point starts after the default 90 s" "$wifi" '^    ap_timeout: 90s$'
   expect_same "node leaves the access point timeout at its default" "" \
     "$(grep -n 'ap_timeout' "$repo/windmill.yaml" || true)"
+  expect_setting "node includes the two disco headers" "$(flat "$(section esphome)")" \
+    ' includes: - [^ ]*/include/mill_disco\.h - [^ ]*/include/mill_disco_esphome\.h '
 }
 
 test_sails_settings() {
@@ -446,13 +458,13 @@ YAML
 }
 
 # package_violations DIR prints each line of DIR/*.yaml, with comments
-# removed, that holds a node-level key or a literal GPIO number.
+# removed, that holds a node-level key (includes too) or a literal GPIO number.
 package_violations() {
   local file
   for file in "$1"/*.yaml; do
     [[ -f $file ]] || continue
     sed -E 's/(^|[[:space:]])#.*$//' "$file" |
-      grep -nE '^[[:space:]]*(- +)?(esphome|esp32|wifi|api|ota|logger):|GPIO[0-9]|\b(pin[a-z_]*|number): *[0-9]' |
+      grep -nE '^[[:space:]]*(- +)?(esphome|esp32|wifi|api|ota|logger|includes):|GPIO[0-9]|\b(pin[a-z_]*|number): *[0-9]' |
       sed "s|^|${file##*/}:|" || true
   done
 }
@@ -460,9 +472,10 @@ package_violations() {
 test_packages_hold_no_node_config() {
   local fixture violations
   fixture=$(mktemp -d "$work/packages.XXXX")
-  printf 'wifi:\n  ssid: x\nstepper:\n  - pin_a: GPIO0  # GPIO9\n    pin_b: 4\n# api:\n' > "$fixture/mill_bad.yaml"
+  printf 'wifi:\n  ssid: x\nstepper:\n  - pin_a: GPIO0  # GPIO9\n    pin_b: 4\n# api:\nincludes:\n  - a.h\n' \
+    > "$fixture/mill_bad.yaml"
   violations=$(package_violations "$fixture")
-  if [[ $(grep -c . <<< "$violations") -eq 3 ]]; then
+  if [[ $(grep -c . <<< "$violations") -eq 4 ]]; then
     pass "package search finds node keys and literal pins"
   else
     fail "package search finds node keys and literal pins" "found: $violations"
@@ -655,8 +668,8 @@ plain_flickers() {
   grep -E '^ *- flicker:' <<< "$1" || true
 }
 
-test_lamplight_effects() {
-  local fixture found lights entry id name light effects type effect interval intensity
+test_light_effects() {
+  local fixture found lights entry id index name light effects expected intensity
   fixture=$'    effects:\n      - addressable_flicker:\n          name: A\n      - flicker:\n          name: B\n      - flicker: {}\n'
   found=$(plain_flickers "$fixture")
   if [[ $(grep -c . <<< "$found") -eq 2 ]]; then
@@ -664,47 +677,31 @@ test_lamplight_effects() {
   else
     fail "flicker search finds plain flicker effects only" "found: $found"
   fi
+  found=$(grep -nE 'mill_pixels|addressable_set' "$repo"/include/*.h || true)
+  expect_same "disco headers do not name the strip or use addressable_set" "" "$found"
   [[ $config_status -ne 0 ]] && return
   lights=$(section light)
-  for entry in "mill_door_glow:Mill Door Glow" "mill_stone_window:Mill Stone Floor Window" \
-    "mill_bin_window:Mill Bin Floor Window"; do
-    IFS=: read -r id name <<< "$entry"
+  for entry in "mill_door_lamp:0:Mill Door Lamp" "mill_door_glow:1:Mill Door Glow" \
+    "mill_stone_window:2:Mill Stone Floor Window" "mill_bin_window:3:Mill Bin Floor Window"; do
+    IFS=: read -r id index name <<< "$entry"
     light=$(list_item "$lights" "^    id: $id$")
     effects=$(effect_list "$light")
-    if [[ $(grep -c . <<< "$effects") -ne 1 ]]; then
-      fail "$name has exactly one effect" "effects: ${effects:-none}"
-      continue
+    # Each line: type|name|update_interval. The interior lights also offer Lamplight.
+    expected="addressable_lambda|Disco|16ms"
+    [[ $id != mill_door_lamp ]] && expected=$'addressable_flicker|Lamplight|50ms\n'"$expected"
+    expect_same "$name offers exactly the effects $(cut -d '|' -f 2 <<< "$expected" | tr '\n' ' ')" \
+      "$expected" "$(cut -d '|' -f 1-3 <<< "$effects")"
+    if [[ $id != mill_door_lamp ]]; then
+      intensity=$(head -n 1 <<< "$effects" | cut -d '|' -f 4)
+      if [[ $intensity =~ ^[0-9]*\.?[0-9]+$ ]] && awk -v v="$intensity" 'BEGIN { exit !(v > 0) }'; then
+        pass "$name Lamplight intensity is above 0%"
+      else
+        fail "$name Lamplight intensity is above 0%" "intensity is '$intensity'"
+      fi
     fi
-    pass "$name has exactly one effect"
-    IFS='|' read -r type effect interval intensity <<< "$effects"
-    if [[ $type == addressable_flicker ]]; then
-      pass "$name effect is an addressable flicker"
-    else
-      fail "$name effect is an addressable flicker" "effect type is '$type'"
-    fi
-    if [[ $effect == Lamplight ]]; then
-      pass "$name effect is named Lamplight"
-    else
-      fail "$name effect is named Lamplight" "effect name is '$effect'"
-    fi
-    if [[ $interval == 50ms ]]; then
-      pass "$name Lamplight updates every 50 ms"
-    else
-      fail "$name Lamplight updates every 50 ms" "update_interval is '$interval'"
-    fi
-    if [[ $intensity =~ ^[0-9]*\.?[0-9]+$ ]] && awk -v v="$intensity" 'BEGIN { exit !(v > 0) }'; then
-      pass "$name Lamplight intensity is above 0%"
-    else
-      fail "$name Lamplight intensity is above 0%" "intensity is '$intensity'"
-    fi
+    expect_setting "$name Disco only renders its own pixel ($index) through the light" "$(flat "$light")" \
+      "name: Disco update_interval: 16ms lambda: !lambda \\|- mill_disco::render\\(it, $index\\); "
   done
-  light=$(list_item "$lights" '^    id: mill_door_lamp$')
-  effects=$(item_key "$light" effects)
-  if [[ -n $light && -z $effects ]]; then
-    pass "Mill Door Lamp has no effects"
-  else
-    fail "Mill Door Lamp has no effects" "effects: ${effects:-no light mill_door_lamp}"
-  fi
   found=$(plain_flickers "$lights")
   if [[ -z $found ]]; then
     pass "no light uses the plain flicker effect"
@@ -958,7 +955,7 @@ test_lambdas_are_short
 test_packages_hold_no_node_config
 test_no_strip_writes
 test_lights_settings
-test_lamplight_effects
+test_light_effects
 test_action_search
 test_controls_button
 test_controls_scripts

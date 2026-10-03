@@ -560,6 +560,9 @@ Lift the mill off its electronics plate:
 2. Extend those nine conductors to the nearest junction box on a single cable.
 3. At the hub, the four coil wires go to a spare ULN2003, the data line to a spare RMT channel, the button line to a spare input, 5V and GND to the bus.
 4. Move the stepper and light blocks from this config into the hub's config, renaming ids to avoid collisions.
+   Copy `include/` with `packages/`, and add the same `esphome: includes:` line to the hub's config
+   (`include/mill_disco.h` and `include/mill_disco_esphome.h`). The light effects call these headers,
+   and a package cannot hold that line.
 5. Remove the C3 and the ULN2003 from the plate, or leave them in place unpowered. The hub then supplies 5V to the 4-pin connector, and a hub ULN2003 drives the motor plug.
 
 The one thing to watch: stepper coil signals over a run of a metre or more are more susceptible to noise than you'd expect. Use twisted pairs and keep the run away from pixel data. If the sails start stuttering after the move, that's why.

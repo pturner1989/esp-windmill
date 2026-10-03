@@ -13,8 +13,13 @@
 # while it changes.
 # The three interior lights offer "Lamplight", an addressable_flicker. It
 # writes at most once each update_interval, whatever the loop rate, and each
-# light draws its own random values. The door lamp has no effect and stays
-# steady. Do not use the plain flicker effect: it writes on every loop pass.
+# light draws its own random values. Do not use the plain flicker effect: it
+# writes on every loop pass.
+# Every light offers "Disco" (the door lamp offers only "Disco"). It calls
+# mill_disco::render (include/mill_disco_esphome.h) with the light's pixel
+# number, which writes only that light's own pixel, so the cap and the light's
+# brightness apply. The headers assume gamma_correct 2.8 (the default) on each
+# light: if it changes here, change kGamma in include/mill_disco.h too.
 
 light:
   - platform: esp32_rmt_led_strip
@@ -44,6 +49,10 @@ light:
           name: Lamplight
           update_interval: 50ms
           intensity: 10%
+      - addressable_lambda:
+          name: Disco
+          update_interval: 16ms
+          lambda: "mill_disco::render(it, 1);"
 
   - platform: partition
     id: mill_stone_window
@@ -60,6 +69,10 @@ light:
           name: Lamplight
           update_interval: 50ms
           intensity: 10%
+      - addressable_lambda:
+          name: Disco
+          update_interval: 16ms
+          lambda: "mill_disco::render(it, 2);"
 
   - platform: partition
     id: mill_bin_window
@@ -76,6 +89,10 @@ light:
           name: Lamplight
           update_interval: 50ms
           intensity: 10%
+      - addressable_lambda:
+          name: Disco
+          update_interval: 16ms
+          lambda: "mill_disco::render(it, 3);"
 
   - platform: partition
     id: mill_door_lamp
@@ -87,3 +104,8 @@ light:
     color_correct: [60%, 60%, 60%, 60%]
     restore_mode: ALWAYS_OFF
     default_transition_length: 3s
+    effects:
+      - addressable_lambda:
+          name: Disco
+          update_interval: 16ms
+          lambda: "mill_disco::render(it, 0);"

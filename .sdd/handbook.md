@@ -22,8 +22,14 @@ It runs ESPHome and joins Home Assistant.
 | Tooling | Python venv, versions pinned in `requirements.txt` |
 
 Custom C++ is a last resort. Prefer built-in ESPHome components and actions.
-Keep a lambda to a few lines. If logic needs more, write an ESPHome `script`.
-If that is still not enough, write an external component under `components/`.
+When logic outgrows one level, move it to the next:
+
+1. **Lambda.** Keep it to a few lines.
+2. **ESPHome `script`.**
+3. **Pure header via `esphome: includes:`** in `windmill.yaml`. Put the maths in a header under `include/`
+   with no ESPHome types, no clock reads and no static state, so it can be tested on the laptop.
+   One thin glue header connects it to ESPHome (`millis()`, the light, the shared state).
+4. **External component** under `components/`.
 
 ## Repository layout
 
@@ -33,6 +39,14 @@ packages/
   mill_sails.yaml          # Stepper, speed number, run switch
   mill_lights.yaml         # Pixel strip and partition lights
   mill_controls.yaml       # Button and scripts
+include/
+  mill_disco.h             # Disco maths: pure functions, host-tested
+  mill_disco_esphome.h     # Disco glue: shared state, millis(), pixel write
+tests/
+  mill_disco_test.cpp      # Header tests for include/mill_disco.h
+scripts/
+  check.sh                 # Pre-commit checks: header tests, lint, config, compile
+  test_check.sh            # Tests for check.sh, the node settings and the packages
 secrets.example.yaml       # Committed. Placeholder values only.
 secrets.yaml               # Git-ignored. Real credentials.
 requirements.txt           # Pinned esphome and yamllint versions
@@ -43,6 +57,7 @@ spec.md
 The package split serves migration Option B in `spec.md`. The hub must be able to include
 `packages/mill_*.yaml` unchanged, with only substitutions (pins, prefixes) changed.
 So a package must not contain node-level config (`esphome:`, `wifi:`, `api:`, `ota:`, `esp32:`).
+This includes `esphome: includes:`, so the headers are listed in `windmill.yaml`, and the hub copies that line.
 
 ## Naming
 
@@ -68,6 +83,8 @@ Every change must keep these true. A review must check them.
    (the pixels are RGBW, so the cap has four channels),
    not only in scripts, so a Home Assistant command cannot exceed it.
    A partition light applies its own correction, not the strip's, so set it on the strip and on every partition.
+   Disco writes only through the partition lights' own effects (`it[0]` in the "Disco" effect),
+   never to the strip `mill_pixels` and never with `addressable_set`.
 3. **Sail speed stays in 60–320 steps/s.** Set the bounds on the number entity. Do not allow a path that sets speed outside this range.
 4. **Pin allocation matches `spec.md`.** GPIO0, GPIO1, GPIO3, GPIO4 drive stepper IN1–IN4; GPIO6 pixel data; GPIO5 button. GPIO2 stays unconnected (boot-strapping pin).
 5. **Serial logging stays off on the C3** (`logger: baud_rate: 0`) in the shipped config.
@@ -92,10 +109,11 @@ ESPHome has no exception model. Handle failure through state and safe defaults:
 
 ## Testing
 
-There is no unit-test framework for ESPHome YAML. Testing has three levels:
+There is no unit-test framework for ESPHome YAML. Testing has four levels:
 
 | Level | Command or method | When |
 | --- | --- | --- |
+| Header tests | `scripts/check.sh` (g++) | Every change to `include/` |
 | Config validation | `esphome config windmill.yaml` | Every change |
 | Compile | `esphome compile windmill.yaml` | Every change to firmware |
 | Bench acceptance | The phase checklists in `spec.md` (Build and test order) | Each hardware milestone |
@@ -103,14 +121,18 @@ There is no unit-test framework for ESPHome YAML. Testing has three levels:
 - To validate without real credentials, copy `secrets.example.yaml` to `secrets.yaml`.
 - A task that changes behaviour must state which bench-checklist items verify it.
   Write its acceptance criteria as observable behaviour (for example "sails stop within one step when the button is held for 1s").
-- If an external component under `components/` is written, it needs host-side tests. Decide the framework at that point and record it here.
+- Header tests use no framework. `tests/mill_disco_test.cpp` has local `CHECK` and `CHECK_NEAR` macros and exits 1
+  on any failed check. `scripts/check.sh` builds it with `g++ -std=c++17 -Wall -Wextra -Werror -Iinclude`
+  into `.esphome/host-tests/` and runs it first. Test only the pure header. The glue header needs ESPHome.
+- `scripts/test_check.sh` checks the check script, the node settings and the packages. Run it with the venv active.
+- If an external component under `components/` is written, it needs host-side tests. Use the same approach.
 
 ## Commits
 
 - The repo is not yet a git repository. Run `git init` before the first implementation task.
 - Use Conventional Commits: `type(scope): summary`.
   - Types: `feat`, `fix`, `refactor`, `docs`, `chore`, `test`.
-  - Scopes: `sails`, `lights`, `controls`, `node`, `spec`, `tooling`.
+  - Scopes: `sails`, `lights`, `controls`, `disco`, `node`, `spec`, `tooling`.
   - Example: `feat(sails): add speed number with 60-320 steps/s bounds`.
 - Put one logical change in each commit. Never commit `secrets.yaml`, `.esphome/`, or build output.
 
@@ -118,7 +140,11 @@ There is no unit-test framework for ESPHome YAML. Testing has three levels:
 
 Run these before every commit. All must pass.
 
+`scripts/check.sh` runs the first four.
+
 ```bash
+g++ -std=c++17 -Wall -Wextra -Werror -Iinclude tests/mill_disco_test.cpp -o .esphome/host-tests/mill_disco_test \
+  && .esphome/host-tests/mill_disco_test
 yamllint -s .
 esphome config windmill.yaml
 esphome compile windmill.yaml   # when firmware YAML changed
