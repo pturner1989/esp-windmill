@@ -846,7 +846,7 @@ test_controls_scripts() {
   expected="switch.turn_on id=mill_sails_turn"
   for id in $partitions; do
     [[ $id == mill_door_lamp ]] && level=0.85 || level=1.0
-    expected+=$'\n'"light.turn_on id=$id;color_mode=RGB_WHITE;brightness=$level;color_brightness=1.0;red=1.0;green=0.47;blue=0.16;white=0.0;state=true"
+    expected+=$'\n'"light.turn_on id=$id;color_mode=RGB_WHITE;brightness=$level;color_brightness=1.0;red=1.0;green=0.76;blue=0.52;white=0.0;state=true"
   done
   expect_same "mill on starts the sails, then fades the lights on to amber with white off and no effect" \
     "$expected" "$before"

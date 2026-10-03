@@ -163,7 +163,7 @@
   mill_toggle: sails on or any of 4 lights on → mill_off; logger.log level INFO tag mill.controls "Button: mill off"
                else → mill_on; logger.log level INFO tag mill.controls "Button: mill on"
   mill_off: script.stop mill_on; switch.turn_off mill_sails_turn; light.turn_off × 4 (3 s fade, stops effect)
-  mill_on (mode restart): switch.turn_on mill_sails_turn; interior × 3 at 100%, lamp at 85%, rgb 100/47/16;
+  mill_on (mode restart): switch.turn_on mill_sails_turn; interior × 3 at 100%, lamp at 85%, rgb 100/76/52 (gives 255/120/40 after gamma 2.8);
            delay 3s; each interior light still on → light.turn_on effect Lamplight
   ```
 - **Rationale:** FR-15 and FR-16: the toggle checks all five outputs, which removes F4. FR-17: the scripts use only firmware entities, so they work without a network. FR-18: every change publishes to HA at once. FR-19: the button state shows in HA. FR-40: no long-press handler exists. FR-27: both `logger.log` calls set level INFO, because the default is DEBUG, and both use the tag `mill.controls`. FR-32: the scripts never touch `mill_sails_reverse`. FR-41: lights fade first, then the effect starts. The colour values are Phase 4 starting values.

@@ -67,6 +67,8 @@ script:
   # lights fade on with no effect, and Lamplight starts after the fade.
   # The pixels are RGBW: the colour mode and white 0% keep the white channel
   # dark, and colour brightness 100% overrides a lower value set from HA.
+  # The amber is 255/120/40 at the LED. ESPHome applies gamma 2.8 after these
+  # values, so they are set to the inputs that give that output: 100/76/52 %.
   - id: mill_on
     mode: restart
     then:
@@ -77,8 +79,8 @@ script:
           brightness: 100%
           color_brightness: 100%
           red: 100%
-          green: 47%
-          blue: 16%
+          green: 76%
+          blue: 52%
           white: 0%
       - light.turn_on:
           id: mill_stone_window
@@ -86,8 +88,8 @@ script:
           brightness: 100%
           color_brightness: 100%
           red: 100%
-          green: 47%
-          blue: 16%
+          green: 76%
+          blue: 52%
           white: 0%
       - light.turn_on:
           id: mill_bin_window
@@ -95,8 +97,8 @@ script:
           brightness: 100%
           color_brightness: 100%
           red: 100%
-          green: 47%
-          blue: 16%
+          green: 76%
+          blue: 52%
           white: 0%
       - light.turn_on:
           id: mill_door_lamp
@@ -104,8 +106,8 @@ script:
           brightness: 85%
           color_brightness: 100%
           red: 100%
-          green: 47%
-          blue: 16%
+          green: 76%
+          blue: 52%
           white: 0%
       - delay: 3s
       # A light turned off during the fade is still on in light.is_on, which
