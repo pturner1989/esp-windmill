@@ -5,7 +5,7 @@
 
 ### Task 1: Minimal node that checks, compiles and joins HA
 
-- **Status:** In Progress (operator checks AC-8 to AC-11 pending)
+- **Status:** Done
 - **Blocked by:** None
 
 **What to build:**
@@ -75,7 +75,7 @@ AC-1 to AC-7 are agent-checkable, and the reviewer unstages the secrets file str
 
 ### Task 2: Sails turn and stop from HA, and boot stopped
 
-- **Status:** In Progress (operator checks AC-3 to AC-5 pending)
+- **Status:** Done
 - **Blocked by:** Task 1
 
 **What to build:**
@@ -115,7 +115,7 @@ AC-1 and AC-2 are agent-checkable; AC-3 to AC-5 need the operator, after the ULN
 
 ### Task 3: Sail Speed set, rounded, rejected and restored
 
-- **Status:** In Progress (operator checks AC-3 to AC-7 pending)
+- **Status:** Done
 - **Blocked by:** Task 2
 
 **What to build:**
@@ -165,7 +165,7 @@ AC-1 and AC-2 are agent-checkable; AC-3 to AC-7 need the operator with the motor
 
 ### Task 4: Sails run with no time limit
 
-- **Status:** In Progress (operator checks AC-2 and AC-3 pending)
+- **Status:** Done
 - **Blocked by:** Task 3
 
 **What to build:**
@@ -195,7 +195,7 @@ AC-1 is agent-checkable; AC-2 and AC-3 need the operator with the motor wired. T
 
 ### Task 5: Four capped lights with fades, dark at boot
 
-- **Status:** In Progress (operator checks AC-3 to AC-6 pending)
+- **Status:** Done
 - **Blocked by:** Task 2
 
 **What to build:**
@@ -240,7 +240,7 @@ AC-1 and AC-2 are agent-checkable; AC-3 to AC-6 need the operator after the four
 
 ### Task 6: Lamplight on the interior lights, steady door lamp
 
-- **Status:** In Progress (operator checks AC-2 and AC-3 pending)
+- **Status:** Done
 - **Blocked by:** Task 4, Task 5
 
 **What to build:**
@@ -270,7 +270,7 @@ AC-1 is agent-checkable; AC-2 and AC-3 need the operator with the pixels wired. 
 
 ### Task 7: Button turns the whole mill on and off
 
-- **Status:** In Progress (operator checks AC-3 to AC-8 pending)
+- **Status:** Done
 - **Blocked by:** Task 4, Task 6
 
 **What to build:**
@@ -325,7 +325,7 @@ AC-1 and AC-2 are agent-checkable; AC-3 to AC-8 need the operator after the butt
 
 ### Task 8: Mill keeps its state through network loss
 
-- **Status:** In Progress (operator checks AC-2 to AC-4 pending)
+- **Status:** Done
 - **Blocked by:** Task 7
 
 **What to build:**
@@ -360,7 +360,7 @@ AC-1 is agent-checkable; AC-2 to AC-4 need the operator, who must be able to swi
 
 ### Task 9: Permanent Reverse Rotation switch
 
-- **Status:** Done in reshaped form: permanent Reverse Rotation switch, no bench package (user decision 2026-10-03); operator check pending
+- **Status:** Done
 - **Blocked by:** Task 8
 
 **What to build:**
