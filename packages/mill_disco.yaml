@@ -1,18 +1,54 @@
 # Disco: the "Disco Mode" switch starts and ends the "Disco" chase on all four
 # lights. It never names the sails, so turning sails keep turning at the same
 # speed and direction, and stopped sails stay stopped.
-# Exposes ids: mill_disco_mode (switch "Disco Mode"),
+# Exposes ids: mill_disco_mode (switch "Disco Mode"), mill_disco_bpm (number
+#   "Disco BPM"), mill_disco_rate (select "Disco Rate"),
 #   mill_disco_start (script), mill_disco_leave (script, takes a light mask).
 # Uses ids: mill_door_glow, mill_stone_window, mill_bin_window, mill_door_lamp
 #   and mill_lamplight (script) from the lights package. The lambdas call
-#   mill_disco::start_now(), any_left(), any_disco() and disco_mask() from
-#   include/mill_disco_esphome.h.
+#   mill_disco::start_now(), set_bpm_now(), set_rate_now(), any_left(),
+#   any_disco() and disco_mask() from include/mill_disco_esphome.h.
 # The switch is not optimistic: only the two scripts publish its state, so HA
 # sees only the true state. It is off after every restart. Its boot-time
 # turn-off runs the leave, which does nothing while the switch is off.
 # A check every 250 ms keeps the switch true to the lights: a light that picks
 # "Disco" starts disco on all four, and a light that is turned off or picks
 # another effect ends it.
+# "Disco BPM" and "Disco Rate" start at 120 and 1x after every restart, as the
+# disco clock does, and keep no value. They are not optimistic: each set action
+# passes the value to the glue and publishes the accepted values. The rate
+# guard allows 2x only at 90 BPM or below, so every step lasts 1/3 s or longer.
+
+number:
+  - platform: template
+    id: mill_disco_bpm
+    name: Disco BPM
+    min_value: 60
+    max_value: 180
+    step: 0.1
+    initial_value: 120
+    optimistic: false
+    restore_value: false
+    # A tempo above 90 BPM drops 2x to 1x, so "Disco Rate" shows 1x too.
+    set_action:
+      - lambda: |-
+          if (mill_disco::set_bpm_now(x)) id(mill_disco_rate).publish_state("1×");
+          id(mill_disco_bpm).publish_state(mill_disco::shared().clock.bpm);
+
+select:
+  - platform: template
+    id: mill_disco_rate
+    name: Disco Rate
+    options:
+      - "½×"
+      - "1×"
+      - "2×"
+    initial_option: "1×"
+    optimistic: false
+    restore_value: false
+    # 2x above 90 BPM is refused, and the select shows 1x.
+    set_action:
+      - lambda: "id(mill_disco_rate).publish_state(mill_disco::set_rate_now(x));"
 
 switch:
   - platform: template

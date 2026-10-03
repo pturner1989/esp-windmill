@@ -987,6 +987,32 @@ test_disco_follows_lights() {
     "script.execute id=mill_disco_leave;mask=15" "$(calls_of switch/mill_disco_mode turn_off_action/then)"
 }
 
+test_disco_tempo_and_rate() {
+  [[ $config_status -ne 0 ]] && return
+  local bpm rate
+  bpm=$(list_item "$(section number)" "^    name: '?Disco BPM'?$")
+  expect_setting "Disco BPM has id mill_disco_bpm" "$bpm" '^    id: mill_disco_bpm$'
+  expect_setting "Disco BPM minimum is 60" "$bpm" '^    min_value: 60(\.0)?$'
+  expect_setting "Disco BPM maximum is 180" "$bpm" '^    max_value: 180(\.0)?$'
+  expect_setting "Disco BPM step is 0.1" "$bpm" '^    step: 0\.1$'
+  expect_setting "Disco BPM starts at 120" "$bpm" '^    initial_value: 120(\.0)?$'
+  expect_setting "Disco BPM is not optimistic" "$bpm" '^    optimistic: false$'
+  expect_setting "Disco BPM does not restore" "$bpm" '^    restore_value: false$'
+  rate=$(list_item "$(section select)" "^    name: '?Disco Rate'?$")
+  expect_setting "Disco Rate has id mill_disco_rate" "$rate" '^    id: mill_disco_rate$'
+  expect_setting "Disco Rate offers ½×, 1× and 2×" "$(flat "$(item_key "$rate" options)")" \
+    "^ ?- '?½×'? - '?1×'? - '?2×'? ?$"
+  expect_setting "Disco Rate starts at 1×" "$rate" "^    initial_option: '?1×'?$"
+  expect_setting "Disco Rate is not optimistic" "$rate" '^    optimistic: false$'
+  expect_setting "Disco Rate does not restore" "$rate" '^    restore_value: false$'
+  expect_same "Disco BPM passes the tempo to the glue, then shows a guard drop and the accepted tempo" \
+    "lambda if (mill_disco::set_bpm_now(x)) id(mill_disco_rate).publish_state(\"1×\"); id(mill_disco_bpm).publish_state(mill_disco::shared().clock.bpm);" \
+    "$(calls_of number/mill_disco_bpm)"
+  expect_same "Disco Rate passes the option to the glue, then shows the accepted rate" \
+    "lambda id(mill_disco_rate).publish_state(mill_disco::set_rate_now(x));" \
+    "$(calls_of select/mill_disco_rate)"
+}
+
 test_controls_boundaries() {
   local package text found ids id outside=""
   package="$repo/packages/mill_controls.yaml"
@@ -1047,6 +1073,7 @@ test_controls_scripts
 test_lamplight_script
 test_disco_mode
 test_disco_follows_lights
+test_disco_tempo_and_rate
 test_controls_boundaries
 
 echo "$passed passed, $failed failed"

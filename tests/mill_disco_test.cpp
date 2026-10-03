@@ -47,11 +47,10 @@ Disco anchored_at(uint32_t anchor) {
   return d;
 }
 
-// Runs frames 16 ms apart from `from` for `duration` ms, all four slots in
-// each frame, and returns each flash start. Every frame at or after
-// `from + late_at` comes 200 ms late.
-std::vector<Start> simulate(Disco d, uint32_t from, uint32_t duration, uint32_t late_at = UINT32_MAX) {
-  std::vector<Start> starts;
+// Runs frames 16 ms apart on `d` from `from` for `duration` ms, all four slots
+// in each frame, and adds each flash start to `starts`. Every frame at or
+// after `from + late_at` comes 200 ms late.
+void run(Disco &d, std::vector<Start> &starts, uint32_t from, uint32_t duration, uint32_t late_at = UINT32_MAX) {
   for (uint32_t k = 0; k * kFrameMs <= duration; k++) {
     uint32_t offset = k * kFrameMs;
     uint32_t now = from + offset + (offset >= late_at ? 200 : 0);
@@ -61,6 +60,11 @@ std::vector<Start> simulate(Disco d, uint32_t from, uint32_t duration, uint32_t 
       d.slots[slot] = f.slot;
     }
   }
+}
+
+std::vector<Start> simulate(Disco d, uint32_t from, uint32_t duration, uint32_t late_at = UINT32_MAX) {
+  std::vector<Start> starts;
+  run(d, starts, from, duration, late_at);
   return starts;
 }
 
@@ -238,6 +242,136 @@ void test_start_resets_the_beat_and_keeps_the_gap() {
   }
 }
 
+// The beat count and the phrase at `now` are the same on both clocks.
+void expect_same_beat(const Clock &before, const Clock &after, uint32_t now) {
+  CHECK_NEAR(beats_at(after, now), beats_at(before, now), 0.001);
+  CHECK(phrase_of(beats_at(after, now)) == phrase_of(beats_at(before, now)));
+}
+
+// Runs `d` for 8 s from `now` and moves `now` to the end. Checks that a flash
+// starts on each multiple of `every` beats, except at most `may_skip` of them.
+void expect_on_beat_every(Disco &d, uint32_t &now, double every, int may_skip) {
+  std::vector<Start> starts;
+  run(d, starts, now, 8000);
+  double first = beats_at(d.clock, now), last = beats_at(d.clock, now + 8000);
+  int grid = 0, on_beat = 0;
+  for (double b = std::ceil(first / every) * every; b < last; b += every) grid++;
+  for (const Start &s : starts) {
+    double b = beats_at(d.clock, s.at) / every;
+    if (int32_t(s.at - now) >= 0 && std::fabs(b - std::round(b)) < 0.01) on_beat++;
+  }
+  CHECK(on_beat <= grid && on_beat >= grid - may_skip);
+  now += 8000;
+}
+
+// A tempo change keeps the beat count, and a rate change keeps the beat, so the
+// steps stay on whole beats. 2x needs 90 BPM or less.
+void test_tempo_and_rate_changes_keep_the_beat() {
+  Disco d = anchored_at(0);
+  std::vector<Start> starts;
+  run(d, starts, 0, 9300);
+  uint32_t now = 9300;
+  Clock before = d.clock;
+  d = set_bpm(d, 100, now).disco;
+  CHECK(d.clock.bpm == 100.0f);
+  expect_same_beat(before, d.clock, now);
+  expect_on_beat_every(d, now, 1, 0);
+  before = d.clock;
+  d = set_rate(d, 0.5f);
+  CHECK(d.clock.rate == 0.5f);
+  expect_same_beat(before, d.clock, now);
+  expect_on_beat_every(d, now, 2, 0);
+  before = d.clock;
+  d = set_bpm(d, 90, now).disco;
+  d = set_rate(d, 2);
+  CHECK(d.clock.rate == 2.0f);
+  expect_same_beat(before, d.clock, now);
+  expect_on_beat_every(d, now, 0.5, 3);  // at most one skip at each bar change
+}
+
+void test_rate_guard_and_tempo_bounds() {
+  Disco d;
+  CHECK(d.clock.bpm == 120.0f && d.clock.rate == 1.0f);
+  d = set_bpm(d, 90, 0).disco;
+  CHECK(set_rate(d, 2).clock.rate == 2.0f);
+  CHECK(set_rate(set_bpm(d, 90.1f, 0).disco, 2).clock.rate == 1.0f);
+  BpmSet raised = set_bpm(set_rate(d, 2), 120, 1000);
+  CHECK(raised.rate_dropped && raised.disco.clock.rate == 1.0f);
+  BpmSet lowered = set_bpm(raised.disco, 80, 2000);
+  CHECK(!lowered.rate_dropped && lowered.disco.clock.rate == 1.0f);
+  CHECK(set_bpm(d, 200, 0).disco.clock.bpm == 180.0f);
+  CHECK(set_bpm(d, 40, 0).disco.clock.bpm == 60.0f);
+}
+
+// Each start sits on a quarter step of clock `c`, and no quarter step holds two.
+void expect_one_start_per_quarter(const std::vector<Start> &starts, const Clock &c) {
+  std::set<long> quarters;
+  for (const Start &s : starts) {
+    double q = beats_at(c, s.at) * c.rate * 4;
+    CHECK_NEAR(q, std::round(q), 0.01);
+    CHECK(quarters.insert(std::lround(q)).second);
+  }
+}
+
+// Every gap between two starts on one slot is at least 333 ms, and no start
+// shows more than 60 ms late.
+void expect_flash_limits(const std::vector<Start> &starts) {
+  for (int slot = 0; slot < 4; slot++) {
+    const Start *previous = nullptr;
+    for (const Start &s : starts) {
+      if (s.slot != slot) continue;
+      CHECK(int32_t(s.frame - s.at) >= 0 && int32_t(s.frame - s.at) <= 60);
+      if (previous != nullptr) CHECK(int32_t(s.at - previous->at) >= 333);
+      previous = &s;
+    }
+  }
+}
+
+void test_flash_limits_at_each_setting() {
+  struct Setting {
+    float bpm, rate;
+    int fewest, most;  // flashes of slot 0 in 30 s
+  };
+  for (const Setting &s : {Setting{120, 1, 59, 61}, {120, 0.5f, 29, 31}, {90, 2, 84, 90}, {180, 1, 84, 90}}) {
+    Disco d = set_rate(set_bpm(anchored_at(0), s.bpm, 0).disco, s.rate);
+    CHECK(d.clock.bpm == s.bpm && d.clock.rate == s.rate);
+    std::vector<Start> starts = simulate(d, 0, 30000);
+    int door_lamp = count_in(starts, 0, 0, 30000);
+    CHECK(door_lamp >= s.fewest && door_lamp <= s.most);
+    expect_one_start_per_quarter(starts, d.clock);
+    expect_flash_limits(starts);
+    // Each slot has one scheduled start in each step.
+    long steps = std::lround(30000 / step_ms(d.clock));
+    std::printf("%g BPM %gx: skips per slot", s.bpm, s.rate);
+    for (int slot = 0; slot < 4; slot++) std::printf(" %ld", steps - count_in(starts, slot, 0, 30000));
+    std::printf("\n");
+  }
+}
+
+// At 90 BPM and 1/2x a step is 1333 ms, so 14000 ms is half-way between two
+// on-beat starts. The raise to 120 BPM drops 2x to 1x.
+void test_flash_limits_across_rate_changes() {
+  Disco d = set_rate(set_bpm(anchored_at(0), 90, 0).disco, 0.5f);
+  std::vector<Start> all, part;
+  run(d, part, 0, 14000);
+  expect_one_start_per_quarter(part, d.clock);
+  all.insert(all.end(), part.begin(), part.end());
+  d = set_rate(d, 2);
+  CHECK(d.clock.rate == 2.0f);
+  part.clear();
+  run(d, part, 14000, 10000);
+  expect_one_start_per_quarter(part, d.clock);
+  all.insert(all.end(), part.begin(), part.end());
+  BpmSet raised = set_bpm(d, 120, 24000);
+  CHECK(raised.rate_dropped);
+  d = raised.disco;
+  part.clear();
+  run(d, part, 24000, 10000);
+  expect_one_start_per_quarter(part, d.clock);
+  all.insert(all.end(), part.begin(), part.end());
+  expect_flash_limits(all);
+}
+
 int main() {
   test_chase_at_120_bpm();
   test_start_resets_the_beat_and_keeps_the_gap();
@@ -248,6 +382,10 @@ int main() {
   test_level_undoes_gamma();
   test_phrase_colours();
   test_clock_across_millis_wrap();
+  test_tempo_and_rate_changes_keep_the_beat();
+  test_rate_guard_and_tempo_bounds();
+  test_flash_limits_at_each_setting();
+  test_flash_limits_across_rate_changes();
   if (failures > 0) {
     std::printf("mill_disco_test: %d checks failed\n", failures);
     return 1;

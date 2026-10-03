@@ -126,8 +126,14 @@ directly, not on these groups.
 ## Disco
 
 Turn on the "Disco Mode" switch in HA to start disco. All four lights turn on at full brightness with
-the "Disco" effect: each pixel flashes in turn and fades, the firing order changes every bar and
-the colours change every 16 beats. The chase runs at 120 BPM. Turn the switch off to end disco: within
-4 s all four lights show the lamplight look (warm amber, with Lamplight on the three interior lights),
-also a light that was off before disco. Disco never touches the sails, so turning sails keep turning
-and stopped sails stay stopped. The switch is off after every restart.
+the "Disco" effect: each pixel flashes in turn and fades, the firing order changes every bar and the
+colours change every 16 beats. Turn the switch off to end disco: within 4 s all four lights show the
+lamplight look (warm amber, with Lamplight on the three interior lights), also a light that was off
+before disco. Disco never touches the sails, so turning sails keep turning and stopped sails stay
+stopped. The switch is off after every restart.
+
+Set the tempo with "Disco BPM" (60 to 180 in steps of 0.1) and the flashes per beat with "Disco Rate":
+½× flashes each pixel every second beat, 1× every beat and 2× every beat and half beat. A change takes
+effect at once and keeps the beat. 2× is allowed only at 90 BPM or below, so no pixel flashes more than
+three times a second: above 90 BPM the mill refuses 2× and HA shows 1×, and a tempo above 90 BPM drops
+2× to 1×. Both controls go back to 120 BPM and 1× after every restart.

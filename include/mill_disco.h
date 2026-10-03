@@ -18,6 +18,11 @@ constexpr int32_t kGapMs = 333;
 // A scheduled start older than this gets no flash, so a late frame never
 // shows a catch-up flash.
 constexpr int32_t kLateMs = 60;
+// The tempo range of "Disco BPM".
+constexpr float kMinBpm = 60;
+constexpr float kMaxBpm = 180;
+// The fastest tempo that allows 2x: a step of 1/3 s.
+constexpr float kFastMaxBpm = 90;
 // Must match gamma_correct on the partition lights (ESPHome default 2.8).
 constexpr float kGamma = 2.8f;
 
@@ -124,6 +129,44 @@ inline Disco start(Disco d, uint32_t now) {
   for (Slot &s : d.slots) {
     if (since(s.flash_ms, now - 10000) < 0) s.flash_ms = now - 10000;
   }
+  return d;
+}
+
+// The same beat count at `now`, then the new tempo, clamped to 60-180 BPM. A
+// NaN tempo becomes 60.
+inline Clock retime(Clock c, uint32_t now, float bpm) {
+  c.anchor_beat = beats_at(c, now);
+  c.anchor_ms = now;
+  c.bpm = std::fmin(std::fmax(bpm, kMinBpm), kMaxBpm);
+  return c;
+}
+
+// The accepted rate for a requested `rate` at `bpm`: 1/2x, 1x or 2x, with 2x
+// only at kFastMaxBpm or below, so every step lasts at least kGapMs.
+inline float guard_rate(float rate, float bpm) {
+  if (rate < 1) return 0.5f;
+  return rate > 1 && bpm <= kFastMaxBpm ? 2.0f : 1.0f;
+}
+
+struct BpmSet {
+  Disco disco;
+  bool rate_dropped;  // the new tempo dropped 2x to 1x
+};
+
+// A tempo change at `now`: the beat count runs on, and 2x drops to 1x above
+// kFastMaxBpm. The rate never returns to 2x by itself.
+inline BpmSet set_bpm(Disco d, float bpm, uint32_t now) {
+  d.clock = retime(d.clock, now, bpm);
+  float rate = guard_rate(d.clock.rate, d.clock.bpm);
+  bool dropped = rate != d.clock.rate;
+  d.clock.rate = rate;
+  return {d, dropped};
+}
+
+// A rate change keeps the beat count, so steps stay on whole beats. The
+// accepted rate is in the returned clock.
+inline Disco set_rate(Disco d, float rate) {
+  d.clock.rate = guard_rate(rate, d.clock.bpm);
   return d;
 }
 
