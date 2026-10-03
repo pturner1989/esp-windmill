@@ -165,7 +165,7 @@ AC-1 and AC-2 are agent-checkable; AC-3 to AC-7 need the operator with the motor
 
 ### Task 4: Sails run with no time limit
 
-- **Status:** Backlog
+- **Status:** In Progress (operator checks AC-2 and AC-3 pending)
 - **Blocked by:** Task 3
 
 **What to build:**

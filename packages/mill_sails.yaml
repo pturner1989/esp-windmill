@@ -77,3 +77,14 @@ script:
       - stepper.set_target:
           id: mill_sails
           target: !lambda "return ${sails_forward_direction} * 10000000;"
+
+# Re-arm every 10 minutes while the sails turn, so they never reach their
+# target. At 320 steps/s one span lasts about 8.7 h.
+interval:
+  - interval: 10min
+    then:
+      - if:
+          condition:
+            switch.is_on: mill_sails_turn
+          then:
+            - script.execute: mill_sails_rearm

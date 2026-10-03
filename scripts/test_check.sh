@@ -312,6 +312,23 @@ test_sail_speed_rounding() {
     '^ ?- stepper\.set_speed: id: mill_sails .*- script\.execute: mill_sails_rearm'
 }
 
+test_sails_rearm() {
+  local package rearm repeat direction resolved
+  package=$(cat "$repo/packages/mill_sails.yaml" 2> /dev/null || true)
+  rearm=$(flat "$(item_key "$(list_item "$(section script "$package")" '^  - id: mill_sails_rearm$')" then)")
+  expect_setting "re-arm script re-bases to 0, then aims 10,000,000 steps forward" "$rearm" \
+    '^ ?- stepper\.report_position: id: mill_sails position: 0 - stepper\.set_target: id: mill_sails target: !lambda "return \$\{sails_forward_direction\} \* 10000000;" ?$'
+  [[ $config_status -ne 0 ]] && return
+  direction=$(sed -En "s/^  sails_forward_direction: '?(-?1)'?$/\1/p" <<< "$(section substitutions)")
+  resolved=$(flat "$(list_item "$(section script)" '^  - id: mill_sails_rearm$')")
+  expect_setting "re-arm target resolves to the forward direction times 10,000,000" "$resolved" \
+    "target: !lambda \|- return ${direction:-unset} \* 10000000;"
+  repeat=$(flat "$(list_item "$(section interval)" '^  - interval: 10min$')")
+  expect_setting "an interval runs every 10 minutes" "$repeat" '^ ?- interval: 10min '
+  expect_setting "the interval re-arms the sails only while Sails Turning is on" "$repeat" \
+    '^ ?- interval: 10min then: - if: condition: switch\.is_on: id: mill_sails_turn then: - script\.execute: id: mill_sails_rearm( startup_delay: [0-9a-z]+)? ?$'
+}
+
 # long_lambdas FILE... prints the first line of each lambda in FILE that spans
 # more than two source lines. A lambda is a value tagged !lambda or the value
 # of a "lambda" key.
@@ -431,6 +448,7 @@ test_node_settings
 test_sails_settings
 test_sail_speed_settings
 test_sail_speed_rounding
+test_sails_rearm
 test_lambdas_are_short
 test_packages_hold_no_node_config
 
