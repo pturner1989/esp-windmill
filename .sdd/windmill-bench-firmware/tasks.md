@@ -87,7 +87,7 @@ The operator turns the sails on and off from HA with the "Sails Turning" switch.
 **AC-1:**
 - **Given:** The example secrets in place
 - **When:** The reviewer runs the check script
-- **Then:** All runs pass and the config holds a ULN2003 stepper on the four sail pin substitutions (GPIO0–3) that does not sleep when done, and an optimistic "Sails Turning" switch with restore mode ALWAYS_OFF
+- **Then:** All runs pass and the config holds a ULN2003 stepper on the four sail pin substitutions (GPIO0, GPIO1, GPIO6 and GPIO3 for IN1–IN4) that does not sleep when done, and an optimistic "Sails Turning" switch with restore mode ALWAYS_OFF
 
 **AC-2:**
 - **Given:** The packages folder
@@ -483,22 +483,22 @@ The "ESPHome configuration" section of the build spec loses its configuration li
 
 All ACs are agent-checkable (the README's device commands were exercised in Task 1 AC-8 to AC-10, Task 7 AC-6 and Task 10 AC-4); no device behaviour changes. The handbook says to update `spec.md` in the same change when the user agrees a divergence, and the user agreed these divergences in the approved spec and design, so this task closes them. The `mill_lights` name stays valid as a package file name; only its use as a light id must go. Keep the `spec.md` heading so links to it still work. This task contributes AT-27 (FR-38), completes the README for FR-39, and repeats the package checks of Task 2 and AT-25 over the final tree (FR-35, FR-36, NFR-02).
 
-### Task 12: One-hour run with the capacitors fitted
+### Task 12: One-hour run with motor and pixels together
 
 - **Status:** Backlog
 - **Blocked by:** Task 6, Task 11
 
 **What to build:**
 
-The operator fits the 1000 µF capacitor at the pixel string entry and the 470 µF capacitor at the stepper driver, and then runs the finished mill for one hour. During the hour the sails turn at 170 steps/s and all four lights show steady colours with no effect. No pixel flickers or changes colour at any point, and the sails turn for the whole hour. This task adds no firmware unless the run shows flicker after the hardware fixes.
+The operator fits the 470 µF capacitor at the stepper driver and runs the finished mill for one hour; a capacitor of at least 100 µF goes at the pixel string entry only if a run shows flicker, and then the run is repeated. During the hour the sails turn at 170 steps/s and all four lights show steady colours with no effect. No pixel flickers or changes colour at any point, and the sails turn for the whole hour. This task adds no firmware unless the run shows flicker after the hardware fixes.
 
 **Acceptance criteria:**
 
 **AC-1:**
-- **Given:** The 1000 µF capacitor at the pixel string entry and the 470 µF capacitor at the stepper driver are fitted, the sails turn at 170 steps/s, and all four lights show steady colours with no effect
+- **Given:** The 470 µF capacitor at the stepper driver is fitted, a capacitor of at least 100 µF is at the pixel string entry only if an earlier run showed flicker, the sails turn at 170 steps/s, and all four lights show steady colours with no effect
 - **When:** The operator runs the mill for 60 minutes and watches the pixels, or reviews one continuous recording of them
 - **Then:** No pixel flickers or changes colour at any point, and the sails turn for the whole hour
 
 **Notes:**
 
-AC-1 needs the operator and the two capacitors, which the operator does not own yet, so this is the only operator-gated task left open until the parts arrive; no other task depends on it. Steady lights with no effect send no frames, so the design expects any flicker in this run to come from the hardware: the capacitors, the 330R resistor and the routing. If AC-1 shows flicker after the hardware fixes (separation, 330R, capacitors), the first firmware fix is to raise the RMT symbol count on the strip, which on the C3 defaults to exactly one 4-pixel frame; the check script must pass again, and the build spec notes and handbook must be re-checked, before the operator repeats the run. The hour also covers at least five re-arms in a row at 170 steps/s, which completes the sails half of AT-29 from Task 4. This task contributes AT-29 (FR-01, FR-14).
+AC-1 needs the operator and the 470 µF capacitor, which the operator does not own yet, so this is the only operator-gated task left open until the parts arrive; no other task depends on it. Steady lights with no effect send no frames, so the design expects any flicker in this run to come from the hardware: the capacitors, the 330R resistor and the routing. If a run flickers, the operator first fits the pixel-entry capacitor and repeats; if flicker remains after the hardware fixes (separation, 330R, capacitors), the first firmware fix is to raise the RMT symbol count on the strip, which on the C3 defaults to exactly one 4-pixel frame; the check script must pass again, and the build spec notes and handbook must be re-checked, before the operator repeats the run. The hour also covers at least five re-arms in a row at 170 steps/s, which completes the sails half of AT-29 from Task 4. This task contributes AT-29 (FR-01, FR-14).

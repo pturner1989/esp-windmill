@@ -13,11 +13,11 @@ That single rule is what makes both your migration paths work later:
 | Path | What changes | What doesn't |
 | --- | --- | --- |
 | Keep the ESP | Plug its USB cable into any 5V USB source, or a 12V-to-USB module if a 12V bus ever exists | Everything inside the mill |
-| Fold it into the main hub | Lift the mill, unplug the 7-pin connector, run 7 wires to the hub | The mill, the drive, the pixels, the mounting |
+| Fold it into the main hub | Lift the mill, unplug the 8-pin connector, run 8 wires to the hub | The mill, the drive, the pixels, the mounting |
 
-So the module is built around an internal split at the base of the mill. Above the split: the mill, sails, motor and pixel string, terminating in a **7-pin JST-XH** carrying four stepper coils, pixel data, 5V and GND. Below the split, on an electronics plate fixed to the mounting pad inside the mill's ground floor: the ESP and the ULN2003. The mill sits down over the plate and lifts off it, so everything below the split stays serviceable without a base box (decided 2026-10-03).
+So the module is built around an internal split at the base of the mill. Above the split: the mill, sails, motor and pixel string, terminating in an **8-pin JST-XH** carrying four stepper coils, pixel data, the doorbell button, 5V and GND. Below the split, on an electronics plate fixed to the mounting pad inside the mill's ground floor: the ESP and the ULN2003. The mill sits down over the plate and lifts off it, so everything below the split stays serviceable without a base box (decided 2026-10-03).
 
-When the mill joins the main system you either leave the plate alone and change what feeds the USB cable, or you pull the ESP and extend that 7-pin connector to the hub. Neither touches anything you glued.
+When the mill joins the main system you either leave the plate alone and change what feeds the USB cable, or you pull the ESP and extend that 8-pin connector to the hub. Neither touches anything you glued.
 
 ### Why USB-C in (decided 2026-10-02)
 
@@ -191,10 +191,11 @@ An ESP32-C3 SuperMini is the right board here: 22 x 18mm, about £3, plenty of G
 | --- | --- | --- |
 | GPIO0 | ULN2003 IN1 |  |
 | GPIO1 | ULN2003 IN2 |  |
-| GPIO2 | ULN2003 IN3 | Has a boot-strap function, fine as output |
+| GPIO2 | Not connected | Boot-strapping pin that must be high at reset; a ULN2003 input would pull it low, so IN3 moved to GPIO6 (2026-10-03) |
 | GPIO3 | ULN2003 IN4 |  |
-| GPIO4 | 74AHCT125 input | Pixel data |
-| GPIO5 | Button, optional | To GND, internal pullup |
+| GPIO4 | Pixel data | Through the 330R, with the diode drop or level shifter |
+| GPIO5 | Doorbell button | Bell push beside the mill door, to GND, internal pullup |
+| GPIO6 | ULN2003 IN3 | No boot function |
 | 5V | USB 5V out | Feeds ULN2003 and pixels |
 | GND | Common |  |
 
@@ -205,7 +206,7 @@ An ESP32-C3 SuperMini is the right board here: 22 x 18mm, about £3, plenty of G
 | Input | USB-C on the C3 SuperMini, from a 5V USB charger | 2A charger recommended |
 | Distribution | C3 5V pin to the electronics plate 5V rail | About 4.7-5.0V depending on the board |
 | Bulk | 470uF across 5V at the ULN2003 | Absorbs stepper switching |
-| Pixel | 1000uF across 5V at the string entry |  |
+| Pixel | 100-1000uF across 5V at the string entry, only if needed | Fit it only if the one-hour Phase 1 run shows flicker |
 
 Peak draw is around 700mA if the pixels ran at full white: roughly 250mA stepper, 240mA pixels, 100mA ESP, plus margin. With the 60% software cap the pixels draw far less, so expect about 450mA. A 5V 2A USB charger is ample, on the bench and in the finished mill.
 
@@ -222,12 +223,13 @@ Use the shifter if you're building the board anyway. Either way, put a 330R resi
 
 ### Layout in the ground floor
 
-The C3, the ULN2003 and the 7-pin board header sit on a small ply electronics plate fixed to the mounting pad, inside the mill's footprint. The mill's ground floor is open underneath and comes down over it.
+The C3, the ULN2003 and the 8-pin board header sit on a small ply electronics plate fixed to the mounting pad, inside the mill's footprint. The mill's ground floor is open underneath and comes down over it.
 
 - **Electronics bay.** Build a light-tight black card bay around the plate at the back of the ground floor, with its own ceiling. It must hide the electronics from the doorway as well as from above, because the door glow (pixel 0) and the door lamp (pixel 3) sit right there. Measure the base former and the door height before sizing the plate; keep the electronics under about 30mm tall.
 - **Light sources.** Desolder the ULN2003 board's four step LEDs; they flash with every step. Paint over the C3's red power LED and blue LED with black paint.
 - **Heat.** The ULN2003 dissipates about 0.3-0.4W the whole time it holds the sails. Leave a vent gap low in the bay so warm air can leave.
-- **Antenna.** Keep the ULN2003 apart from the ESP, and the ESP's antenna end (opposite the USB-C socket) up and away from any steel ballast. If WiFi is marginal, that's the first thing to move.
+- **Doorbell.** The button is a small tactile switch set into the wall beside the door as a bell push, so the mill works on its own before any scenery exists. Its two wires run inside into the ground floor: one to pin 8 of the 8-pin plug, the other to the pigtail's GND.
+- **Antenna.** Keep the ULN2003 apart from the ESP, and the ESP's antenna end (opposite the USB-C socket) away from any metal. If WiFi is marginal, that's the first thing to move.
 
 ## Wiring diagram
 
@@ -239,13 +241,13 @@ flowchart TD
   RAIL --> ULN[ULN2003 driver<br/>+ 470uF]
   RAIL --> SHIFT[Data-level fix<br/>diode drop or 74AHCT125]
 
-  ESP -->|GPIO0-3| ULN
+  ESP -->|GPIO0, 1, 6, 3| ULN
   ESP -->|GPIO4| SHIFT
-  BTN[Button, optional] -->|GPIO5| ESP
+  BTN[Doorbell button<br/>beside the mill door] -->|GPIO5, pin 8| ESP
 
   ULN --> J7
   SHIFT --> J7
-  RAIL --> J7[7-pin JST-XH<br/>base of mill]
+  RAIL --> J7[8-pin JST-XH<br/>base of mill]
 
   J7 -->|4 coils| MOT[28BYJ-48<br/>in the cap]
   J7 -->|data, 5V, GND| PIX[4 x SK6812<br/>up the tower]
@@ -308,7 +310,7 @@ stepper:
     id: sails
     pin_a: GPIO0
     pin_b: GPIO1
-    pin_c: GPIO2
+    pin_c: GPIO6
     pin_d: GPIO3
     max_speed: 170 steps/s
     step_mode: FULL_STEP
@@ -470,7 +472,7 @@ script:
 | Layer | Part |
 | --- | --- |
 | Mill | Base former + 4mm ply ring glued under it, open in the centre |
-| Electronics | Ply plate with the C3, ULN2003 and 7-pin header, fixed to the pad inside the ring |
+| Electronics | Ply plate with the C3, ULN2003 and 8-pin header, fixed to the pad inside the ring |
 | Landscape | Papier-mâché, with a let-in ply pad flush to the surface |
 | Pad | 6mm ply or hardwood disc, 130mm, bedded on the baseboard |
 | Baseboard | 12mm ply |
@@ -484,7 +486,7 @@ There is no base box (decided 2026-10-03), so nothing can be reached from undern
 
 ### Ballast
 
-A 2kg steel plate directly under the mill changes the board from something that tips to something that doesn't. With no base box it has to go under the baseboard (in a recess, or with the board raised on feet). **Undecided.** Wherever it goes, keep it at least 20mm from the C3's antenna.
+None (decided 2026-10-03). The fixing has to hold the mill against a knock on its own.
 
 ### Cable route
 
@@ -492,7 +494,7 @@ Only the USB cable leaves the mill. It runs from the C3 on the electronics plate
 
 ### Access
 
-The mill lifts off by releasing its fixing and lifting it straight up, which exposes the electronics plate; then unplug the 7-pin connector. Nothing else is attached. Keep it that way: don't glue the mill's base into the landscape, and leave a 1mm shadow gap around it filled with snow or loose ground cover rather than adhesive.
+The mill lifts off by releasing its fixing and lifting it straight up, which exposes the electronics plate; then unplug the 8-pin connector. Nothing else is attached. Keep it that way: don't glue the mill's base into the landscape, and leave a 1mm shadow gap around it filled with snow or loose ground cover rather than adhesive.
 
 ### Standing it before the board exists
 
@@ -553,11 +555,11 @@ The windmill stays a separate node in Home Assistant, appearing as its own devic
 
 Lift the mill off its electronics plate:
 
-1. Unplug the 7-pin JST-XH from the plate.
-2. Extend those seven conductors to the nearest junction box on a single cable.
-3. At the hub, the four coil wires go to a spare ULN2003, the data line to a spare RMT channel, 5V and GND to the bus.
+1. Unplug the 8-pin JST-XH from the plate.
+2. Extend those eight conductors to the nearest junction box on a single cable.
+3. At the hub, the four coil wires go to a spare ULN2003, the data line to a spare RMT channel, the button line to a spare input, 5V and GND to the bus.
 4. Move the stepper and light blocks from this config into the hub's config, renaming ids to avoid collisions.
-5. Remove the C3 and the ULN2003 from the plate, or leave them in place unpowered. The hub then supplies 5V to the 7-pin connector.
+5. Remove the C3 and the ULN2003 from the plate, or leave them in place unpowered. The hub then supplies 5V to the 8-pin connector.
 
 The one thing to watch: stepper coil signals over a run of a metre or more are more susceptible to noise than you'd expect. Use twisted pairs and keep the run away from pixel data. If the sails start stuttering after the move, that's why.
 
@@ -587,11 +589,10 @@ Approximate UK prices from memory, so budget rather than quote. Around £55 all 
 | 1 | 684ZZ bearing, 4 x 9 x 4mm | 3 |
 | 1 | Shaft coupler, 5mm to 4mm | 3 |
 | 1 | 4mm brass tube, 300mm (sail shaft) | 3 |
-| 1 | JST-XH 7-pin kit with crimps | 4 |
-| 1 | 2kg steel ballast plate | 6 |
+| 1 | JST-XH 8-pin kit with crimps | 4 |
 | 1 | 5V 2A USB charger and USB-A to USB-C cable | 6 |
 | - | 4mm and 6mm ply offcuts, M4 inserts and bolts | 5 |
-| - | Capacitors (470uF, 1000uF, 16V), 330R, cable clamp, wire | 3 |
+| - | 470uF 16V capacitor (plus 100-1000uF only if the one-hour run needs it), 330R, small tactile switch for the doorbell, cable clamp, wire | 3 |
 
 ### Worth buying spares of
 
@@ -626,7 +627,7 @@ Junction boxes are part of the main build rather than this module.
 | Sail wobble from imbalance | High | Balance on a pin before fitting |
 | Pixel flicker when stepper runs | Medium | Separation, 330R, test in phase 1 |
 | Cap runs warm over a season | Medium | Vents, scheduled hours, not unattended |
-| C3 WiFi weak inside the ground floor | Low | Antenna up and away from ballast, or swap to a full ESP32 |
+| C3 WiFi weak inside the ground floor | Low | Antenna away from the ULN2003 and any metal, or swap to a full ESP32 |
 | USB cable tug damages the C3 socket | Medium | Clamp the cable to the electronics plate |
 | Light from the electronics shows through the door | Medium | Light-tight bay; desolder ULN2003 LEDs; paint over C3 LEDs |
 | Electronics bay runs warm | Medium | Vent gap low in the bay; check by hand after the Phase 4 run |

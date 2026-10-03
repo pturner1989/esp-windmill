@@ -9,7 +9,7 @@
 
 ## 1. Problem context and why it matters
 
-The Matchmaker MM02 windmill gets motorised sails and four lit pixels. One ESP32-C3 SuperMini runs it. A 28BYJ-48 stepper on a ULN2003 driver turns the sails (GPIO0–3). Four SK6812 pixels light the door, two windows and an outside lamp (GPIO4). An optional button on GPIO5 gives local control. Home Assistant (HA) controls the mill through the ESPHome native API.
+The Matchmaker MM02 windmill gets motorised sails and four lit pixels. One ESP32-C3 SuperMini runs it. A 28BYJ-48 stepper on a ULN2003 driver turns the sails (GPIO0–3 at research time; IN3 moved to GPIO6 on 2026-10-03 because GPIO2 is a boot-strapping pin). Four SK6812 pixels light the door, two windows and an outside lamp (GPIO4). An optional button on GPIO5 gives local control. Home Assistant (HA) controls the mill through the ESPHome native API.
 
 `spec.md` sets one rule above all others: everything electrical must work on the bench before anything is glued shut. After assembly there is no access to the pixels, the wiring inside the tower, or (without effort) the motor. So the firmware must be correct and tested while the parts still sit on a breadboard. A fault found after Phase 3 means taking the model apart.
 
@@ -52,7 +52,7 @@ The handbook "Safety invariants" apply to every change. The ones that shape this
 | Boot state is dark and stopped | Handbook invariant 1 | No `RESTORE_*` mode or `restore_value` on anything that starts the motor or lights |
 | Brightness cap 60% in firmware | Handbook invariant 2 | `color_correct` on the strip and every partition |
 | Speed stays in 60–320 steps/s | Handbook invariant 3 | Bounds on the number entity. No other path may set speed outside them |
-| Pins match `spec.md` | Handbook invariant 4 | GPIO0–3 stepper, GPIO4 pixel data, GPIO5 button, all through substitutions |
+| Pins match `spec.md` | Handbook invariant 4 | GPIO0, 1, 6, 3 stepper (was GPIO0–3), GPIO4 pixel data, GPIO5 button, all through substitutions |
 | Serial logging off on the C3 | Handbook invariant 5 | `logger: baud_rate: 0`. Read logs over the API |
 | The 7-pin JST-XH is the module boundary | Handbook invariant 6 | Firmware assumes only four coils and one data line above it |
 | Packages hold no node-level config | Handbook "Repository layout" | `esphome:`, `wifi:`, `api:`, `ota:`, `esp32:` stay in `windmill.yaml` |
@@ -238,7 +238,7 @@ This is one spec. It has one coherent outcome: firmware on the C3, verified on t
 | Location | Relevance |
 | --- | --- |
 | `spec.md` "ESPHome configuration" | Starting config. Diverges per sections 4 and 6 |
-| `spec.md` "Pin allocation" | GPIO0–3, GPIO4, GPIO5 |
+| `spec.md` "Pin allocation" | GPIO0, 1, 6, 3 (stepper), GPIO4, GPIO5; GPIO2 unconnected |
 | `spec.md` "Build and test order", Phase 1 | The acceptance checklist for done |
 | `spec.md` "Speed", "Sleep behaviour", "Brightness" | 170 steps/s default, `sleep_when_done: false`, amber colour about 255/120/40 |
 | Handbook "Safety invariants" | Checked by every review |

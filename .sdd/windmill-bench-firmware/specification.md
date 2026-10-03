@@ -1,6 +1,6 @@
 # Specification: Windmill Bench Firmware
 
-**Version:** 1.5
+**Version:** 1.6
 **Date:** 2026-10-02
 **Status:** Approved
 **Author:** Pete Turner (with Claude)
@@ -206,7 +206,7 @@ In every statement, "the system" means the windmill firmware running on the ESP3
 - **Verification:** architectural-only. The reviewer confirms in the firmware files that each path carries the cap.
 
 **NFR-02: Safety invariants hold in the firmware files**
-- **Target:** Zero violations of these rules in review: nothing restores a lit or turning state at start-up; no path sets Sail Speed outside 60–320 steps/s; stepper outputs are GPIO0–3, pixel data is GPIO4 and the button is GPIO5, as `spec.md` "Pin allocation" states; serial logging is off; the committed log level is INFO.
+- **Target:** Zero violations of these rules in review: nothing restores a lit or turning state at start-up; no path sets Sail Speed outside 60–320 steps/s; stepper outputs IN1–IN4 are GPIO0, GPIO1, GPIO6 and GPIO3, GPIO2 is unconnected, pixel data is GPIO4 and the button is GPIO5, as `spec.md` "Pin allocation" states; serial logging is off; the committed log level is INFO.
 - **Verification:** architectural-only. The reviewer checks the firmware files against the handbook "Safety invariants" before each commit.
 
 **NFR-03: One change removes the bench option**
@@ -358,7 +358,7 @@ In every statement, "the system" means the windmill firmware running on the ESP3
 - **Then:** "Mill Interior" turns on pixels 0, 1 and 2 only; "Mill Lights" turns off all four pixels.
 
 **AT-29: One-hour run with motor and pixels together** (FR-14; Phase 1 "run together for an hour")
-- **Given:** The 1000 µF capacitor at the pixel string entry and the 470 µF capacitor at the stepper driver are fitted. The sails turn at 170 steps/s and all four lights are on steady colours with no effect. The operator may watch the pixels directly or make one continuous video recording of them for the whole hour.
+- **Given:** The 470 µF capacitor at the stepper driver is fitted. A capacitor of at least 100 µF is fitted at the pixel string entry only if an earlier run of this test showed flicker. The sails turn at 170 steps/s and all four lights are on steady colours with no effect. The operator may watch the pixels directly or make one continuous video recording of them for the whole hour.
 - **When:** The operator runs the mill for 60 minutes and watches the pixels, or reviews the recording.
 - **Then:** No pixel flickers or changes colour at any point during the hour, and the sails turn for the whole hour.
 
@@ -406,3 +406,4 @@ In every statement, "the system" means the windmill firmware running on the ESP3
 | 1.3 | 2026-10-02 | Pete Turner (with Claude) | Applied third-round review fixes (AT-20, AT-03, AT-23, FR-41, FR-27) |
 | 1.4 | 2026-10-02 | Pete Turner (with Claude) | Power changed to USB-C into the C3 (spec.md updated); AT-07, AT-17, AT-19, AT-20, AT-21 and the out-of-scope voltage check reworded |
 | 1.5 | 2026-10-02 | Pete Turner (with Claude) | FR-41 excludes HA turn-ons that request an effect (the platform starts an effect without a fade); accepted by the user during design |
+| 1.6 | 2026-10-03 | Pete Turner (with Claude) | Stepper IN3 moved from GPIO2 to GPIO6 (NFR-02); AT-29 no longer requires the pixel-entry capacitor unless a run shows flicker |
