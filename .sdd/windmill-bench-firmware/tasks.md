@@ -195,7 +195,7 @@ AC-1 is agent-checkable; AC-2 and AC-3 need the operator with the motor wired. T
 
 ### Task 5: Four capped lights with fades, dark at boot
 
-- **Status:** Backlog
+- **Status:** In Progress (operator checks AC-3 to AC-6 pending)
 - **Blocked by:** Task 2
 
 **What to build:**

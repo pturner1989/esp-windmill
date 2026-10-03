@@ -1,0 +1,67 @@
+# Lights: four SK6812 pixels on one data line, one light for each pixel.
+# Needs substitution: pixel_pin (pixel data).
+# Exposes ids: mill_pixels (the internal strip, never written directly),
+#   mill_door_glow (light "Mill Door Glow", pixel 0),
+#   mill_stone_window (light "Mill Stone Floor Window", pixel 1),
+#   mill_bin_window (light "Mill Bin Floor Window", pixel 2),
+#   mill_door_lamp (light "Mill Door Lamp", pixel 3).
+# Each light applies its own colour correction, not the strip's, so the 60%
+# cap is on the strip and on every light. Every pixel write goes through one
+# of the four lights. A light with no effect sends frames only while it changes.
+
+light:
+  - platform: esp32_rmt_led_strip
+    id: mill_pixels
+    name: Mill Pixels
+    internal: true
+    pin: ${pixel_pin}
+    num_leds: 4
+    chipset: SK6812
+    channel_colors: GRB
+    color_correct: [60%, 60%, 60%]
+    max_refresh_rate: 20ms
+    restore_mode: ALWAYS_OFF
+
+  - platform: partition
+    id: mill_door_glow
+    name: Mill Door Glow
+    segments:
+      - id: mill_pixels
+        from: 0
+        to: 0
+    color_correct: [60%, 60%, 60%]
+    restore_mode: ALWAYS_OFF
+    default_transition_length: 3s
+
+  - platform: partition
+    id: mill_stone_window
+    name: Mill Stone Floor Window
+    segments:
+      - id: mill_pixels
+        from: 1
+        to: 1
+    color_correct: [60%, 60%, 60%]
+    restore_mode: ALWAYS_OFF
+    default_transition_length: 3s
+
+  - platform: partition
+    id: mill_bin_window
+    name: Mill Bin Floor Window
+    segments:
+      - id: mill_pixels
+        from: 2
+        to: 2
+    color_correct: [60%, 60%, 60%]
+    restore_mode: ALWAYS_OFF
+    default_transition_length: 3s
+
+  - platform: partition
+    id: mill_door_lamp
+    name: Mill Door Lamp
+    segments:
+      - id: mill_pixels
+        from: 3
+        to: 3
+    color_correct: [60%, 60%, 60%]
+    restore_mode: ALWAYS_OFF
+    default_transition_length: 3s

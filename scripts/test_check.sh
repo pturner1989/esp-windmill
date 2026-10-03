@@ -434,6 +434,155 @@ test_packages_hold_no_node_config() {
   else
     fail "packages hold no node config or literal pins" "found: $violations"
   fi
+  # The search reads packages/*.yaml, so it covers every package the node includes.
+  local included file outside=""
+  included=$(sed -nE 's/^  [a-z_]+: !include (.+)$/\1/p' "$repo/windmill.yaml")
+  for file in $included; do
+    [[ $file == packages/*.yaml && $file != */*/* && -f $repo/$file ]] || outside+=" $file"
+  done
+  if [[ -z $included ]]; then
+    fail "package search covers every included package" "windmill.yaml includes no package"
+  elif [[ -n $outside ]]; then
+    fail "package search covers every included package" "not in packages/:$outside"
+  else
+    pass "package search covers every included package ($(tr '\n' ' ' <<< "$included" | sed 's/ $//'))"
+  fi
+}
+
+# strip_writes FILE... prints each addressable_set, each rmt_channel, each
+# light action or condition that names the strip mill_pixels, and each lambda
+# that names it, in FILE. Comments are not read.
+strip_writes() {
+  python3 - "$@" << 'PY'
+import re
+import sys
+
+import yaml
+
+
+def target(node):
+    if isinstance(node, yaml.ScalarNode):
+        return node.value
+    if isinstance(node, yaml.MappingNode):
+        for k, v in node.value:
+            if k.value == "id" and isinstance(v, yaml.ScalarNode):
+                return v.value
+    return None
+
+
+def walk(node, found):
+    if isinstance(node, yaml.MappingNode):
+        for k, v in node.value:
+            key = str(k.value)
+            if "addressable_set" in key or key == "rmt_channel":
+                found.append(key)
+            elif key.startswith("light.") and target(v) == "mill_pixels":
+                found.append(f"{key}: mill_pixels")
+            walk(v, found)
+    elif isinstance(node, yaml.SequenceNode):
+        for v in node.value:
+            walk(v, found)
+    elif re.search(r"\bid\(\s*mill_pixels\s*\)", node.value):
+        found.append(node.value.strip().splitlines()[0])
+
+
+for path in sys.argv[1:]:
+    with open(path) as f:
+        found = []
+        walk(yaml.compose(f, Loader=yaml.SafeLoader), found)
+    for line in found:
+        print(f"{path.rsplit('/', 1)[-1]}: {line}")
+PY
+}
+
+test_no_strip_writes() {
+  local fixture found
+  fixture=$(mktemp -d "$work/strip.XXXX")
+  cat > "$fixture/mill_bad.yaml" << 'YAML'
+light:
+  - platform: partition
+    segments:
+      - id: mill_pixels
+        from: 0
+        to: 0
+    rmt_channel: 0
+script:
+  - id: mill_bad
+    then:
+      - light.turn_on: mill_pixels
+      - light.turn_off:
+          id: mill_pixels
+      - light.addressable_set:
+          id: mill_door_glow
+      - light.turn_on: mill_door_glow
+      - lambda: "id(mill_pixels).turn_on();"
+# - light.control: mill_pixels
+YAML
+  found=$(strip_writes "$fixture/mill_bad.yaml")
+  if [[ $(grep -c . <<< "$found") -eq 5 ]]; then
+    pass "strip search finds strip writes, addressable_set and rmt_channel"
+  else
+    fail "strip search finds strip writes, addressable_set and rmt_channel" "found: $found"
+  fi
+  found=$(strip_writes "$repo/windmill.yaml" "$repo"/packages/*.yaml)
+  if [[ -z $found ]]; then
+    pass "no action writes the strip, and no addressable_set or rmt_channel exists"
+  else
+    fail "no action writes the strip, and no addressable_set or rmt_channel exists" "found: $found"
+  fi
+}
+
+# expect_cap_and_off NAME ITEM checks that the light ITEM carries a 60% colour
+# correction on each of its three channels and boots off.
+expect_cap_and_off() {
+  expect_setting "$1 is capped at 60% on every channel" "$(flat "$(item_key "$2" color_correct)")" \
+    '^ ?- 0\.6 - 0\.6 - 0\.6 ?$'
+  expect_setting "$1 boots off" "$2" '^    restore_mode: ALWAYS_OFF$'
+}
+
+test_lights_settings() {
+  local package header word missing="" lights strip entry id index name light
+  package=$(cat "$repo/packages/mill_lights.yaml" 2> /dev/null || true)
+  expect_setting "node includes the lights package" "$(section packages "$(cat "$repo/windmill.yaml")")" \
+    '^  lights: !include packages/mill_lights\.yaml$'
+  expect_setting "lights package takes the pixel pin from its substitution" "$package" \
+    "^ +pin: '?\\\$\\{pixel_pin\\}'?$"
+  header=$(awk '!/^#/ { exit } 1' <<< "$package")
+  for word in pixel_pin mill_pixels mill_door_glow mill_stone_window mill_bin_window mill_door_lamp; do
+    grep -qw -- "$word" <<< "$header" || missing+=" $word"
+  done
+  if [[ -n $header && -z $missing ]]; then
+    pass "lights package starts with a comment that lists its substitution and ids"
+  else
+    fail "lights package starts with a comment that lists its substitution and ids" "missing:${missing:- the comment}"
+  fi
+  [[ $config_status -ne 0 ]] && return
+  lights=$(section light)
+  strip=$(list_item "$lights" '^    id: mill_pixels$')
+  expect_setting "node sets the pixel pin to GPIO6" "$(section substitutions)" "^  pixel_pin: '?GPIO6'?$"
+  if [[ $(pin_number "$strip" pin) == 6 ]]; then
+    pass "pixel strip pin is GPIO6"
+  else
+    fail "pixel strip pin is GPIO6" "pin number is '$(pin_number "$strip" pin)' in: $strip"
+  fi
+  expect_setting "pixel strip is an RMT LED strip" "$strip" '^  - platform: esp32_rmt_led_strip$'
+  expect_setting "pixel strip is internal" "$strip" '^    internal: true$'
+  expect_setting "pixel strip has 4 pixels" "$strip" '^    num_leds: 4$'
+  expect_setting "pixel strip chipset is SK6812" "$strip" '^    chipset: SK6812$'
+  expect_setting "pixel strip channel order is GRB" "$strip" '^    channel_colors: GRB$'
+  expect_setting "pixel strip sends at most one frame each 20 ms" "$strip" '^    max_refresh_rate: 20ms$'
+  expect_cap_and_off "pixel strip" "$strip"
+  for entry in "mill_door_glow:0:Mill Door Glow" "mill_stone_window:1:Mill Stone Floor Window" \
+    "mill_bin_window:2:Mill Bin Floor Window" "mill_door_lamp:3:Mill Door Lamp"; do
+    IFS=: read -r id index name <<< "$entry"
+    light=$(list_item "$lights" "^    id: $id$")
+    expect_setting "light $id is a partition" "$light" '^  - platform: partition$'
+    expect_setting "light $id is named $name" "$light" "^    name: '?$name'?$"
+    expect_setting "$name lights only pixel $index" "$(flat "$(item_key "$light" segments)")" \
+      "^ ?- id: mill_pixels from: $index to: $index reversed: false ?$"
+    expect_setting "$name fades over 3 s by default" "$light" '^    default_transition_length: 3s$'
+    expect_cap_and_off "$name" "$light"
+  done
 }
 
 test_tool_versions
@@ -451,6 +600,8 @@ test_sail_speed_rounding
 test_sails_rearm
 test_lambdas_are_short
 test_packages_hold_no_node_config
+test_no_strip_writes
+test_lights_settings
 
 echo "$passed passed, $failed failed"
 [[ $failed -eq 0 ]]

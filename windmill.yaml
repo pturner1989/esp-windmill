@@ -8,6 +8,8 @@ substitutions:
   sails_pin_d: GPIO4
   # "1" or "-1". Set on the bench so forward is anticlockwise from the sail side.
   sails_forward_direction: "1"
+  # Pixel data, through the 330R resistor.
+  pixel_pin: GPIO6
 
 esphome:
   name: ${name}
@@ -43,3 +45,4 @@ captive_portal:
 
 packages:
   sails: !include packages/mill_sails.yaml
+  lights: !include packages/mill_lights.yaml

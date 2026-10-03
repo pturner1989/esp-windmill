@@ -43,8 +43,9 @@ It refuses to start if `esphome` or `yamllint` is not on the path, if `secrets.y
 or if `secrets.yaml` is staged in git. The first compile downloads the ESP-IDF toolchain
 (several GB), so it takes several minutes.
 
-`scripts/test_check.sh` tests the check script, the secrets handling, the node and sails settings,
-and that no package holds node-level config or a literal GPIO number.
+`scripts/test_check.sh` tests the check script, the secrets handling, the node, sails and lights
+settings, that no action writes the pixel strip directly, and that no package holds node-level config
+or a literal GPIO number.
 Run it with the venv active.
 
 ## First USB flash and OTA
@@ -94,3 +95,19 @@ The sails must turn anticlockwise when you look from the sail side. The substitu
 4. If the mark turns clockwise, set `sails_forward_direction: "-1"` in the `substitutions` of
    `windmill.yaml` (or back to `"1"` if it is already `"-1"`). Then update over the network
    (see "First USB flash and OTA").
+
+## HA light groups
+
+The firmware gives HA four lights, one for each pixel: "Mill Door Glow" (pixel 0),
+"Mill Stone Floor Window" (pixel 1), "Mill Bin Floor Window" (pixel 2) and "Mill Door Lamp" (pixel 3).
+Create two light groups in HA to control them together. HA lists each light with the device name
+in front, for example "Windmill Mill Door Glow".
+
+1. In HA, go to Settings → Devices & services → Helpers.
+2. Select Create helper → Group → Light group.
+3. Name it "Mill Interior" and add Mill Door Glow, Mill Stone Floor Window and Mill Bin Floor Window.
+   Submit.
+4. Repeat steps 2 and 3 for a group named "Mill Lights" with all four lights.
+
+The groups exist only in HA. The mill button and the firmware scripts act on the four lights
+directly, not on these groups.
