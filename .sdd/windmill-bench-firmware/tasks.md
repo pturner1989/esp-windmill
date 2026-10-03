@@ -5,7 +5,7 @@
 
 ### Task 1: Minimal node that checks, compiles and joins HA
 
-- **Status:** Backlog
+- **Status:** In Progress (operator checks AC-8 to AC-11 pending)
 - **Blocked by:** None
 
 **What to build:**

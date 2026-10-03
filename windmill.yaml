@@ -1,0 +1,35 @@
+substitutions:
+  name: village-windmill
+  friendly_name: Windmill
+
+esphome:
+  name: ${name}
+  friendly_name: ${friendly_name}
+
+esp32:
+  board: esp32-c3-devkitm-1
+  framework:
+    type: esp-idf
+    # ESP-IDF prints early lines straight to the USB console, past the logger.
+    log_level: NONE
+
+logger:
+  baud_rate: 0
+  level: INFO
+
+api:
+  encryption:
+    key: !secret api_key
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  ap:
+    ssid: Windmill Fallback
+    password: !secret ap_password
+
+captive_portal:
