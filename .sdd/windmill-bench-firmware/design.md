@@ -35,7 +35,7 @@
 
 ### Quality Attributes
 - **NFR-01:** `color_correct: [60%, 60%, 60%]` is on the strip and on each partition. Every pixel write goes through a partition: from HA, from Lamplight, from `mill_on` and from `mill_pixel_test`. The strip is `internal`, and no action targets it (no `addressable_set`).
-- **NFR-02:** `ALWAYS_OFF` is on all five lights and both switches, and only `Sail Speed` restores a value. Speed stays in 60–320 by three means: the number bounds; rounding, which maps [60,320] onto multiples of 10 inside [60,320]; and, at turn-on, the same half-up rounding followed by a clamp to 60–320, where NaN gives 170. Pins exist only as substitutions in `windmill.yaml`: GPIO0, GPIO1, GPIO6 and GPIO3 for the stepper (GPIO2 unconnected), GPIO4 for pixel data and GPIO5 for the button.
+- **NFR-02:** `ALWAYS_OFF` is on all five lights and both switches, and only `Sail Speed` restores a value. Speed stays in 60–320 by three means: the number bounds; rounding, which maps [60,320] onto multiples of 10 inside [60,320]; and, at turn-on, the same half-up rounding followed by a clamp to 60–320, where NaN gives 170. Pins exist only as substitutions in `windmill.yaml`: GPIO0, GPIO1, GPIO3 and GPIO4 for the stepper (GPIO2 unconnected), GPIO6 for pixel data and GPIO5 for the button.
 - **NFR-03:** The bench package is self-contained. `scripts/check.sh` fails if more than one line of `windmill.yaml` names `mill_bench.yaml`.
 - **Loop timing (single core):** The stepper takes at most one step per `loop()`, so blocking work in a loop pass can delay a step and lower the real speed. Each Lamplight effect returns early until its `update_interval` (50 ms) has passed, so it writes at the same rate whatever the loop rate. The strip's `max_refresh_rate` (20 ms) also limits frames to 50 per second. Each frame blocks for about 0.1–0.2 ms (`rmt_tx_wait_all_done` and a 50 µs delay), so Lamplight blocks for at most about 1% of loop time. Toggles write no flash, because no switch or global restores. `flash_write_interval` (60 s) batches speed saves. The re-arm is O(1) every 10 minutes. The only log lines are one INFO line per button toggle. All objects are allocated at setup.
 - **FR-14:** Steady lights with no effect send no frames. When frames are sent, the RMT hardware times the bits, so loop timing cannot change them. The one remaining firmware risk is a delayed RMT refill (see Risks); otherwise flicker comes from the hardware: the capacitors, the 330R resistor and the routing.
@@ -57,7 +57,7 @@
 **Scripts (firmware-internal, no parameters):** `mill_sails_rearm` re-bases and re-arms. `mill_on` and `mill_off` turn the whole mill on or off. `mill_toggle` chooses on or off and logs the choice. `mill_pixel_test` runs the addressing test (bench only).
 
 **Substitutions (set in `windmill.yaml`; the Option B hub changes only these):**
-- `name`, `friendly_name`; `sails_pin_a`–`sails_pin_d` (GPIO0, GPIO1, GPIO6, GPIO3; GPIO2 stays unconnected because it is a boot-strapping pin), `pixel_pin` (GPIO4), `button_pin` (GPIO5).
+- `name`, `friendly_name`; `sails_pin_a`–`sails_pin_d` (GPIO0, GPIO1, GPIO3, GPIO4; GPIO2 stays unconnected because it is a boot-strapping pin), `pixel_pin` (GPIO6), `button_pin` (GPIO5).
 - `sails_forward_direction` (`"1"` or `"-1"`): the operator sets it on the bench so that forward is anticlockwise from the sail side (AT-01).
 
 **Commands:**
@@ -93,8 +93,8 @@
 - **Kind:** ESPHome top-level config.
 - **Details:**
   ```
-  substitutions: name village-windmill, friendly_name Windmill, sails_pin_a..d GPIO0, GPIO1, GPIO6, GPIO3,
-                 pixel_pin GPIO4, button_pin GPIO5, sails_forward_direction "1"
+  substitutions: name village-windmill, friendly_name Windmill, sails_pin_a..d GPIO0, GPIO1, GPIO3, GPIO4,
+                 pixel_pin GPIO6, button_pin GPIO5, sails_forward_direction "1"
   esphome: {name ${name}, friendly_name ${friendly_name}}
   esp32: {board esp32-c3-devkitm-1, framework: {type esp-idf, log_level NONE}}   logger: {baud_rate 0, level INFO}
   api: {encryption.key !secret api_key, reboot_timeout 0s}   ota: [{platform esphome, password !secret ota_password}]
@@ -296,6 +296,6 @@
 |---------|------|--------|---------|
 | 1.0 | 2026-10-02 | Pete Turner (with Claude) | Initial design. |
 | 1.1 | 2026-10-02 | Pete Turner (with Claude) | Review fixes: Lamplight as `addressable_flicker` with a rate limit, ESP-IDF log level NONE, check order and staged-secrets check, spec v1.5. |
-| 1.2 | 2026-10-03 | Pete Turner (with Claude) | Stepper IN3 on GPIO6, GPIO2 unconnected; spec v1.6. |
+| 1.2 | 2026-10-03 | Pete Turner (with Claude) | Stepper on GPIO0, 1, 3, 4 with GPIO2 unconnected; pixel data on GPIO6; spec v1.6. |
 
 ---

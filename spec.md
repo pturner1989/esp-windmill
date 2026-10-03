@@ -191,11 +191,11 @@ An ESP32-C3 SuperMini is the right board here: 22 x 18mm, about £3, plenty of G
 | --- | --- | --- |
 | GPIO0 | ULN2003 IN1 |  |
 | GPIO1 | ULN2003 IN2 |  |
-| GPIO2 | Not connected | Boot-strapping pin that must be high at reset; a ULN2003 input would pull it low, so IN3 moved to GPIO6 (2026-10-03) |
-| GPIO3 | ULN2003 IN4 |  |
-| GPIO4 | Pixel data | Through the 330R, with the diode drop or level shifter |
+| GPIO2 | Not connected | Boot-strapping pin that must be high at reset; a ULN2003 input would pull it low |
+| GPIO3 | ULN2003 IN3 |  |
+| GPIO4 | ULN2003 IN4 | Stepper pins sit together on the left row, with GPIO2 empty in the middle (2026-10-03) |
 | GPIO5 | Doorbell button | Bell push beside the mill door, to GND, internal pullup |
-| GPIO6 | ULN2003 IN3 | No boot function |
+| GPIO6 | Pixel data | Through the 330R, with the diode drop or level shifter; next to the button on the right row |
 | 5V | USB 5V out | Feeds ULN2003 and pixels |
 | GND | Common |  |
 
@@ -241,8 +241,8 @@ flowchart TD
   RAIL --> ULN[ULN2003 driver<br/>+ 470uF]
   RAIL --> SHIFT[Data-level fix<br/>diode drop or 74AHCT125]
 
-  ESP -->|GPIO0, 1, 6, 3| ULN
-  ESP -->|GPIO4| SHIFT
+  ESP -->|GPIO0, 1, 3, 4| ULN
+  ESP -->|GPIO6| SHIFT
   BTN[Doorbell button<br/>beside the mill door] -->|GPIO5, pin 8| ESP
 
   ULN --> J7
@@ -310,8 +310,8 @@ stepper:
     id: sails
     pin_a: GPIO0
     pin_b: GPIO1
-    pin_c: GPIO6
-    pin_d: GPIO3
+    pin_c: GPIO3
+    pin_d: GPIO4
     max_speed: 170 steps/s
     step_mode: FULL_STEP
     sleep_when_done: false
@@ -363,7 +363,7 @@ light:
     id: mill_pixels
     name: "Mill Pixels"
     internal: true
-    pin: GPIO4
+    pin: GPIO6
     num_leds: 4
     rmt_channel: 0
     chipset: SK6812

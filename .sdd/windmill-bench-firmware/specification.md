@@ -206,7 +206,7 @@ In every statement, "the system" means the windmill firmware running on the ESP3
 - **Verification:** architectural-only. The reviewer confirms in the firmware files that each path carries the cap.
 
 **NFR-02: Safety invariants hold in the firmware files**
-- **Target:** Zero violations of these rules in review: nothing restores a lit or turning state at start-up; no path sets Sail Speed outside 60–320 steps/s; stepper outputs IN1–IN4 are GPIO0, GPIO1, GPIO6 and GPIO3, GPIO2 is unconnected, pixel data is GPIO4 and the button is GPIO5, as `spec.md` "Pin allocation" states; serial logging is off; the committed log level is INFO.
+- **Target:** Zero violations of these rules in review: nothing restores a lit or turning state at start-up; no path sets Sail Speed outside 60–320 steps/s; stepper outputs IN1–IN4 are GPIO0, GPIO1, GPIO3 and GPIO4, GPIO2 is unconnected, pixel data is GPIO6 and the button is GPIO5, as `spec.md` "Pin allocation" states; serial logging is off; the committed log level is INFO.
 - **Verification:** architectural-only. The reviewer checks the firmware files against the handbook "Safety invariants" before each commit.
 
 **NFR-03: One change removes the bench option**
@@ -406,4 +406,4 @@ In every statement, "the system" means the windmill firmware running on the ESP3
 | 1.3 | 2026-10-02 | Pete Turner (with Claude) | Applied third-round review fixes (AT-20, AT-03, AT-23, FR-41, FR-27) |
 | 1.4 | 2026-10-02 | Pete Turner (with Claude) | Power changed to USB-C into the C3 (spec.md updated); AT-07, AT-17, AT-19, AT-20, AT-21 and the out-of-scope voltage check reworded |
 | 1.5 | 2026-10-02 | Pete Turner (with Claude) | FR-41 excludes HA turn-ons that request an effect (the platform starts an effect without a fade); accepted by the user during design |
-| 1.6 | 2026-10-03 | Pete Turner (with Claude) | Stepper IN3 moved from GPIO2 to GPIO6 (NFR-02); AT-29 no longer requires the pixel-entry capacitor unless a run shows flicker |
+| 1.6 | 2026-10-03 | Pete Turner (with Claude) | Pins changed so GPIO2 (boot-strapping) is unconnected: stepper on GPIO0, 1, 3, 4, pixel data on GPIO6 (NFR-02); AT-29 no longer requires the pixel-entry capacitor unless a run shows flicker |

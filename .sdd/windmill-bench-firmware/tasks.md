@@ -87,7 +87,7 @@ The operator turns the sails on and off from HA with the "Sails Turning" switch.
 **AC-1:**
 - **Given:** The example secrets in place
 - **When:** The reviewer runs the check script
-- **Then:** All runs pass and the config holds a ULN2003 stepper on the four sail pin substitutions (GPIO0, GPIO1, GPIO6 and GPIO3 for IN1–IN4) that does not sleep when done, and an optimistic "Sails Turning" switch with restore mode ALWAYS_OFF
+- **Then:** All runs pass and the config holds a ULN2003 stepper on the four sail pin substitutions (GPIO0, GPIO1, GPIO3 and GPIO4 for IN1–IN4) that does not sleep when done, and an optimistic "Sails Turning" switch with restore mode ALWAYS_OFF
 
 **AC-2:**
 - **Given:** The packages folder
@@ -207,7 +207,7 @@ HA shows four lights, "Mill Door Glow" (pixel 0), "Mill Stone Floor Window" (1),
 **AC-1:**
 - **Given:** The example secrets in place
 - **When:** The reviewer runs the check script and reads the lights package
-- **Then:** All runs pass; the strip is internal, uses the pixel pin substitution (GPIO4), four SK6812 pixels and GRB order; and the strip and all four partition lights each carry a 60% colour correction on every channel and restore mode ALWAYS_OFF
+- **Then:** All runs pass; the strip is internal, uses the pixel pin substitution (GPIO6), four SK6812 pixels and GRB order; and the strip and all four partition lights each carry a 60% colour correction on every channel and restore mode ALWAYS_OFF
 
 **AC-2:**
 - **Given:** The node file and the packages
@@ -236,7 +236,7 @@ HA shows four lights, "Mill Door Glow" (pixel 0), "Mill Stone Floor Window" (1),
 
 **Notes:**
 
-AC-1 and AC-2 are agent-checkable; AC-3 to AC-6 need the operator after the four pixels are wired to GPIO4 through the 330R with the data-level fix, and AC-5 also needs the motor wired as in Task 2. AC-3 first answers whether the pixels are RGB or RGBW: if the colours are wrong because they are RGBW, only the lights package changes (RGBW flag, GRBW order, four correction values on the strip and every light), and the AT-11 limit is recomputed from the datasheet. Steady lights with no effect send no frames, which is the firmware half of FR-14. This task contributes AT-08, AT-17 (completed here), AT-28 and the first two readings of AT-11 (FR-10, FR-13, FR-14, FR-18, FR-20, FR-39, FR-41, NFR-01); the lights package starts with a comment that lists its substitutions and ids.
+AC-1 and AC-2 are agent-checkable; AC-3 to AC-6 need the operator after the four pixels are wired to GPIO6 through the 330R with the data-level fix, and AC-5 also needs the motor wired as in Task 2. AC-3 first answers whether the pixels are RGB or RGBW: if the colours are wrong because they are RGBW, only the lights package changes (RGBW flag, GRBW order, four correction values on the strip and every light), and the AT-11 limit is recomputed from the datasheet. Steady lights with no effect send no frames, which is the firmware half of FR-14. This task contributes AT-08, AT-17 (completed here), AT-28 and the first two readings of AT-11 (FR-10, FR-13, FR-14, FR-18, FR-20, FR-39, FR-41, NFR-01); the lights package starts with a comment that lists its substitutions and ids.
 
 ### Task 6: Lamplight on the interior lights, steady door lamp
 
