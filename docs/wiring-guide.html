@@ -1,0 +1,539 @@
+<title>Windmill Wiring Guide</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one reading column with a sticky part switcher; bench steps as checklists, wire colours carry meaning. */
+:root {
+  --bg: #f2f3ef;
+  --surface: #fbfbf8;
+  --fg: #1c211f;
+  --muted: #5d6662;
+  --rule: #d5d9d2;
+  --accent: #9c4a1a;          /* copper */
+  --accent-soft: #f3e3d6;
+  --warn-bg: #fbf0d3;
+  --warn-fg: #6b4a00;
+  --w-5v: #c8332b;
+  --w-gnd: #26292b;
+  --w-data: #b98a00;
+  --w-blue: #2f6fc0;
+  --w-pink: #c9578a;
+  --w-yellow: #c99a00;
+  --w-orange: #d8701a;
+  --w-btn: #2e8b57;
+  --font-display: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
+  --font-body: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #131715; --surface: #1a1f1c; --fg: #e5e8e3; --muted: #9aa49f; --rule: #2e3531;
+    --accent: #e0915a; --accent-soft: #3a2a1f; --warn-bg: #3a3017; --warn-fg: #f1d48a;
+    --w-5v: #ff6b5e; --w-gnd: #b9c0bc; --w-data: #e9bd2f; --w-blue: #6aa6ff; --w-pink: #f08cb8;
+    --w-yellow: #f0c63c; --w-orange: #ff9b4a; --w-btn: #5fcf8f;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #131715; --surface: #1a1f1c; --fg: #e5e8e3; --muted: #9aa49f; --rule: #2e3531;
+  --accent: #e0915a; --accent-soft: #3a2a1f; --warn-bg: #3a3017; --warn-fg: #f1d48a;
+  --w-5v: #ff6b5e; --w-gnd: #b9c0bc; --w-data: #e9bd2f; --w-blue: #6aa6ff; --w-pink: #f08cb8;
+  --w-yellow: #f0c63c; --w-orange: #ff9b4a; --w-btn: #5fcf8f;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg);
+  font-family: var(--font-body); font-size: 16px; line-height: 1.55;
+  padding-inline: 16px; padding-block: 0 64px;
+}
+.wrap { max-width: 860px; margin-inline: auto; display: grid; gap: 40px; }
+h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; line-height: 1.1; margin: 0; }
+h1 { font-size: clamp(2.4rem, 6vw, 3.4rem); font-weight: 700; letter-spacing: 0.01em; }
+h2 { font-size: 2rem; font-weight: 700; }
+h3 { font-size: 1.35rem; font-weight: 600; }
+p { margin: 0; max-width: 68ch; }
+code, .mono { font-family: var(--font-mono); font-size: 0.86em; }
+.eyebrow { font-family: var(--font-mono); font-size: 0.78rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
+.muted { color: var(--muted); }
+a { color: var(--accent); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+header.top { display: grid; gap: 14px; padding-top: 40px; }
+.lede { font-size: 1.08rem; }
+
+nav.parts {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
+  background: var(--bg); border-bottom: 1px solid var(--rule);
+  display: flex; flex-wrap: wrap; gap: 6px 18px; padding-block: 10px;
+  font-family: var(--font-display); font-size: 1.1rem; font-weight: 600;
+}
+nav.parts a { text-decoration: none; color: var(--fg); }
+nav.parts a:hover { color: var(--accent); }
+
+section { display: grid; gap: 18px; }
+.block { display: grid; gap: 12px; }
+
+.rules { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+.rule-card { background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; padding: 12px 14px; display: grid; gap: 4px; min-width: 0; }
+.rule-card strong { font-family: var(--font-display); font-size: 1.1rem; }
+
+.note { background: var(--warn-bg); color: var(--warn-fg); border-radius: 6px; padding: 12px 14px; display: grid; gap: 6px; }
+.note strong { font-weight: 700; }
+.note p { max-width: none; }
+
+figure { margin: 0; display: grid; gap: 8px; }
+figcaption { color: var(--muted); font-size: 0.92rem; max-width: 68ch; }
+.figbox { background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; padding: 12px; overflow-x: auto; }
+.figbox svg { display: block; width: 100%; height: auto; min-width: 560px; color: var(--fg); }
+
+.table-scroll { overflow-x: auto; border: 1px solid var(--rule); border-radius: 6px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 0.95rem; }
+th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+th { font-family: var(--font-display); font-size: 1rem; font-weight: 600; letter-spacing: 0.02em; }
+tr:last-child td { border-bottom: 0; }
+td.num { font-variant-numeric: tabular-nums; font-family: var(--font-mono); font-size: 0.86rem; white-space: nowrap; }
+
+.wire { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.wire::before { content: ""; width: 18px; height: 4px; border-radius: 2px; background: var(--c, var(--fg)); flex: none; }
+.c-5v { --c: var(--w-5v); } .c-gnd { --c: var(--w-gnd); } .c-data { --c: var(--w-data); }
+.c-blue { --c: var(--w-blue); } .c-pink { --c: var(--w-pink); } .c-yellow { --c: var(--w-yellow); }
+.c-orange { --c: var(--w-orange); } .c-btn { --c: var(--w-btn); }
+
+.stage { border-top: 2px solid var(--fg); padding-top: 14px; display: grid; gap: 12px; }
+.stage-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 16px; }
+.tag { font-family: var(--font-mono); font-size: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; background: var(--accent-soft); color: var(--accent); padding: 3px 8px; border-radius: 4px; white-space: nowrap; }
+.stage-progress { font-family: var(--font-mono); font-size: 0.78rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+ol.steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; counter-reset: step; }
+ol.steps li { counter-increment: step; }
+ol.steps label {
+  display: grid; grid-template-columns: 22px 2.2ch 1fr; gap: 10px; align-items: start;
+  padding: 8px 6px; border-radius: 4px; cursor: pointer;
+}
+ol.steps label:hover { background: var(--surface); }
+ol.steps label::after { content: none; }
+ol.steps .n { font-family: var(--font-mono); font-size: 0.82rem; color: var(--muted); padding-top: 2px; }
+ol.steps .n::before { content: counter(step); }
+ol.steps input { width: 18px; height: 18px; margin: 3px 0 0; accent-color: var(--accent); }
+ol.steps .t { min-width: 0; }
+ol.steps input:checked ~ .t { color: var(--muted); text-decoration: line-through; text-decoration-color: var(--rule); }
+.check-line { font-size: 0.95rem; }
+.check-line strong { font-family: var(--font-display); font-size: 1.05rem; }
+
+.reset { justify-self: start; font: inherit; font-size: 0.9rem; background: none; color: var(--accent); border: 1px solid var(--rule); border-radius: 4px; padding: 6px 12px; cursor: pointer; }
+.reset:hover { border-color: var(--accent); }
+
+footer { color: var(--muted); font-size: 0.9rem; border-top: 1px solid var(--rule); padding-top: 16px; display: grid; gap: 6px; }
+
+@media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+</style>
+
+<div class="wrap">
+
+<header class="top">
+  <span class="eyebrow">Matchmaker MM02 · ESP32-C3 SuperMini · bench and final build</span>
+  <h1>Windmill Wiring Guide</h1>
+  <p class="lede">Step-by-step wiring for the motorised windmill: first on a breadboard, one stage at a time in the order the firmware tasks need it, then as the permanent build, where the mill lifts off its electronics plate by unplugging two connectors. Tick steps off as you go; your ticks are kept in this browser only.</p>
+  <div class="rules">
+    <div class="rule-card"><strong>Unplug before you wire</strong><span>Pull the USB cable before you add or move any wire. Plug the pixel lead in with the power off.</span></div>
+    <div class="rule-card"><strong>One power source</strong><span>The C3's USB-C port is the only input: a 5V 2A charger normally, the laptop when you flash. Never feed the 5V rail from anywhere else.</span></div>
+    <div class="rule-card"><strong>Check polarity twice</strong><span>Capacitor stripe to GND. Diode stripe towards the pixels. Pixel lead from the input end of the string.</span></div>
+  </div>
+</header>
+
+<nav class="parts" aria-label="Sections">
+  <a href="#overview">Overview</a>
+  <a href="#pins">Pin map</a>
+  <a href="#breadboard">A · Breadboard</a>
+  <a href="#permanent">B · Permanent</a>
+  <a href="#trouble">Troubleshooting</a>
+</nav>
+
+<section id="overview">
+  <span class="eyebrow">Overview</span>
+  <h2>What connects to what</h2>
+  <figure>
+    <div class="figbox">
+      <svg viewBox="0 0 780 380" role="img" aria-label="Power and signal paths: the USB charger feeds the C3; the C3's 5V pin feeds a 5V rail that supplies the ULN2003 and, through a 1N5408 diode, the pixels. GPIO0, 1, 3 and 4 drive the ULN2003, which drives the motor. GPIO6 drives pixel data through 330 ohms. The doorbell button pulls GPIO5 to ground. In the permanent build two connectors separate the electronics plate from the mill.">
+        <defs>
+          <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+          </marker>
+        </defs>
+        <g font-family="JetBrains Mono, monospace" font-size="12" fill="currentColor">
+          <!-- boundary -->
+          <line x1="575" y1="40" x2="575" y2="350" stroke="currentColor" stroke-width="1.5" stroke-dasharray="6 5" opacity="0.6"/>
+          <text x="575" y="28" text-anchor="middle" font-size="12">2 mill connectors (permanent build)</text>
+          <text x="300" y="58" text-anchor="middle" opacity="0.7">ELECTRONICS PLATE</text>
+          <text x="680" y="58" text-anchor="middle" opacity="0.7">MILL</text>
+
+          <!-- charger -->
+          <rect x="20" y="120" width="110" height="50" rx="4" fill="none" stroke="currentColor" stroke-width="1.5"/>
+          <text x="75" y="141" text-anchor="middle">USB charger</text>
+          <text x="75" y="158" text-anchor="middle" opacity="0.7">5V 2A</text>
+          <line x1="130" y1="145" x2="176" y2="145" stroke="currentColor" stroke-width="1.5" marker-end="url(#ah)"/>
+          <text x="153" y="137" text-anchor="middle" font-size="11">USB-C</text>
+
+          <!-- button -->
+          <rect x="20" y="210" width="110" height="40" rx="4" fill="none" stroke="var(--w-btn)" stroke-width="1.5"/>
+          <text x="75" y="235" text-anchor="middle">Doorbell</text>
+          <line x1="130" y1="230" x2="176" y2="230" stroke="var(--w-btn)" stroke-width="2" marker-end="url(#ah)"/>
+          <text x="153" y="222" text-anchor="middle" font-size="11">GPIO5</text>
+
+          <!-- C3 -->
+          <rect x="180" y="90" width="150" height="180" rx="4" fill="none" stroke="currentColor" stroke-width="2"/>
+          <text x="255" y="114" text-anchor="middle" font-weight="600">ESP32-C3</text>
+          <text x="255" y="130" text-anchor="middle" opacity="0.7">SuperMini</text>
+          <text x="322" y="160" text-anchor="end">GPIO0,1,3,4</text>
+          <text x="322" y="215" text-anchor="end">GPIO6</text>
+          <text x="196" y="262">5V</text>
+          <text x="296" y="262">GND</text>
+
+          <!-- GPIO0-3 to ULN -->
+          <line x1="330" y1="155" x2="396" y2="155" stroke="var(--w-blue)" stroke-width="3" marker-end="url(#ah)"/>
+          <text x="363" y="147" text-anchor="middle" font-size="11">IN1–IN4</text>
+
+          <!-- ULN -->
+          <rect x="400" y="120" width="130" height="70" rx="4" fill="none" stroke="currentColor" stroke-width="1.5"/>
+          <text x="465" y="148" text-anchor="middle">ULN2003</text>
+          <text x="465" y="165" text-anchor="middle" opacity="0.7">+ 470µF</text>
+
+          <!-- ULN to motor -->
+          <line x1="530" y1="155" x2="616" y2="155" stroke="var(--w-orange)" stroke-width="3" marker-end="url(#ah)"/>
+          <text x="597" y="147" text-anchor="middle" font-size="11">4 coils</text>
+
+          <!-- motor -->
+          <rect x="620" y="120" width="140" height="70" rx="4" fill="none" stroke="currentColor" stroke-width="1.5"/>
+          <text x="690" y="148" text-anchor="middle">28BYJ-48</text>
+          <text x="690" y="165" text-anchor="middle" opacity="0.7">in the cap</text>
+
+          <!-- data path -->
+          <line x1="330" y1="210" x2="436" y2="210" stroke="var(--w-data)" stroke-width="2"/>
+          <rect x="436" y="200" width="56" height="20" rx="3" fill="none" stroke="var(--w-data)" stroke-width="1.5"/>
+          <text x="464" y="214" text-anchor="middle" font-size="11">330R</text>
+          <line x1="492" y1="210" x2="616" y2="210" stroke="var(--w-data)" stroke-width="2" marker-end="url(#ah)"/>
+          <text x="555" y="202" text-anchor="middle" font-size="11">data</text>
+
+          <!-- pixels -->
+          <rect x="620" y="195" width="140" height="60" rx="4" fill="none" stroke="currentColor" stroke-width="1.5"/>
+          <text x="690" y="221" text-anchor="middle">4 × SK6812</text>
+          <text x="690" y="238" text-anchor="middle" opacity="0.7">up the tower</text>
+
+          <!-- 5V rail -->
+          <line x1="205" y1="270" x2="205" y2="300" stroke="var(--w-5v)" stroke-width="2.5"/>
+          <line x1="205" y1="300" x2="710" y2="300" stroke="var(--w-5v)" stroke-width="2.5"/>
+          <text x="215" y="292" fill="var(--w-5v)" font-size="11">5V rail, about 4.7–5.0V</text>
+          <line x1="465" y1="300" x2="465" y2="194" stroke="var(--w-5v)" stroke-width="2" marker-end="url(#ah)"/>
+          <text x="472" y="250" font-size="11">+</text>
+          <!-- diode on pixel feed -->
+          <line x1="710" y1="300" x2="710" y2="286" stroke="var(--w-5v)" stroke-width="2"/>
+          <polygon points="702,286 718,286 710,274" fill="none" stroke="var(--w-5v)" stroke-width="1.5"/>
+          <line x1="701" y1="273" x2="719" y2="273" stroke="var(--w-5v)" stroke-width="2"/>
+          <line x1="710" y1="273" x2="710" y2="259" stroke="var(--w-5v)" stroke-width="2" marker-end="url(#ah)"/>
+          <text x="726" y="284" font-size="11">1N5408</text>
+          <text x="726" y="270" font-size="11" opacity="0.8">+cap if needed</text>
+
+          <!-- GND rail -->
+          <line x1="305" y1="270" x2="305" y2="330" stroke="var(--w-gnd)" stroke-width="2.5"/>
+          <line x1="305" y1="330" x2="760" y2="330" stroke="var(--w-gnd)" stroke-width="2.5"/>
+          <text x="315" y="346" font-size="11">GND rail (shared by everything)</text>
+        </g>
+      </svg>
+    </div>
+    <figcaption>The USB charger powers the C3, and the C3's 5V pin feeds everything else. The pixels take their 5V through the diode drop, which lowers their supply to about 4.2V so the C3's 3.3V data counts as a valid high. In the permanent build, everything right of the dashed line is built into the mill and plugs into the electronics plate, inside the mill's ground floor, through two connectors: the motor's own 5-pin plug and a 4-pin plug for power, data and the doorbell.</figcaption>
+  </figure>
+</section>
+
+<section id="pins">
+  <span class="eyebrow">Pin map</span>
+  <h2>C3 pins used</h2>
+  <p>On most C3 SuperMini boards, with the USB-C socket at the top, the left row reads 5V, GND, 3V3, GPIO4, 3, 2, 1, 0 from the top, and the right row reads GPIO5, 6, 7, 8, 9, 10, 20, 21. Batches vary, so go by the labels printed on your board.</p>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>C3 pin</th><th>Goes to</th><th>Suggested wire</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td class="num">5V</td><td>5V rail</td><td><span class="wire c-5v">red</span></td><td>USB 5V passed through the board. Feeds the ULN2003 and the pixels.</td></tr>
+        <tr><td class="num">GND</td><td>GND rail</td><td><span class="wire c-gnd">black</span></td><td>One common ground for everything.</td></tr>
+        <tr><td class="num">GPIO0</td><td>ULN2003 IN1</td><td><span class="wire c-blue">any</span></td><td></td></tr>
+        <tr><td class="num">GPIO1</td><td>ULN2003 IN2</td><td><span class="wire c-pink">any</span></td><td></td></tr>
+        <tr><td class="num">GPIO2</td><td>Nothing</td><td class="muted">–</td><td>Boot-strapping pin: it must be high at reset, so leave it unconnected.</td></tr>
+        <tr><td class="num">GPIO3</td><td>ULN2003 IN3</td><td><span class="wire c-yellow">any</span></td><td></td></tr>
+        <tr><td class="num">GPIO4</td><td>ULN2003 IN4</td><td><span class="wire c-orange">any</span></td><td>The four stepper pins sit together on the left row, with GPIO2 empty in the middle.</td></tr>
+        <tr><td class="num">GPIO5</td><td>Doorbell button → GND</td><td><span class="wire c-btn">green</span></td><td>No resistor. The firmware turns on the internal pull-up.</td></tr>
+        <tr><td class="num">GPIO6</td><td>330R → pixel data in</td><td><span class="wire c-data">yellow</span></td><td>Right row, next to the button. Keep it away from the four stepper wires.</td></tr>
+        <tr><td class="num">3V3</td><td>Nothing</td><td class="muted">–</td><td>Leave unconnected.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="breadboard">
+  <span class="eyebrow">Part A</span>
+  <h2>Breadboard bench build</h2>
+  <p>Wire one stage at a time. Each stage unlocks a firmware task, so you can test what you just wired before adding the next part.</p>
+
+  <div class="stage" data-stage="a1">
+    <div class="stage-head"><h3>A1 · C3 and power rails</h3><span class="tag">Firmware task 1</span></div>
+    <ol class="steps">
+      <li><label><input type="checkbox" id="a1-1"><span class="n"></span><span class="t">Press the C3 into the breadboard so it straddles the centre channel, USB-C socket towards the board's edge so the cable can reach it.</span></label></li>
+      <li><label><input type="checkbox" id="a1-2"><span class="n"></span><span class="t">If your breadboard's power rails are split halfway along (a gap in the red and blue lines), bridge both halves with short jumpers.</span></label></li>
+      <li><label><input type="checkbox" id="a1-3"><span class="n"></span><span class="t">Wire the C3's <code>5V</code> pin to the <span class="wire c-5v">+ rail</span> and its <code>GND</code> pin to the <span class="wire c-gnd">− rail</span>. Leave <code>3V3</code> unconnected.</span></label></li>
+      <li><label><input type="checkbox" id="a1-4"><span class="n"></span><span class="t">Plug in the laptop's USB cable. With a multimeter, check the rails read between 4.7V and 5.1V.</span></label></li>
+    </ol>
+    <p class="check-line"><strong>Ready when:</strong> the rails read about 5V. You can now do the first USB flash and see the windmill appear in Home Assistant.</p>
+  </div>
+
+  <div class="stage" data-stage="a2">
+    <div class="stage-head"><h3>A2 · Stepper driver and motor</h3><span class="tag">Firmware task 2</span></div>
+    <ol class="steps">
+      <li><label><input type="checkbox" id="a2-1"><span class="n"></span><span class="t">Unplug the USB cable.</span></label></li>
+      <li><label><input type="checkbox" id="a2-2"><span class="n"></span><span class="t">With female-to-male jumpers, wire <code>GPIO0</code> → <code>IN1</code>, <code>GPIO1</code> → <code>IN2</code>, <code>GPIO3</code> → <code>IN3</code>, <code>GPIO4</code> → <code>IN4</code> on the ULN2003 board. All four are on the left row; leave <code>GPIO2</code>, in the middle of them, unconnected. Keep this order exactly: a swap makes the motor buzz without turning.</span></label></li>
+      <li><label><input type="checkbox" id="a2-3"><span class="n"></span><span class="t">Wire the ULN2003 board's <code>+</code> pin to the <span class="wire c-5v">+ rail</span> and its <code>−</code> pin to the <span class="wire c-gnd">− rail</span>. Leave the small power jumper next to those pins fitted.</span></label></li>
+      <li><label><input type="checkbox" id="a2-4"><span class="n"></span><span class="t">Plug the 28BYJ-48 into the white 5-pin socket on the ULN2003 board. It only fits one way.</span></label></li>
+      <li><label><input type="checkbox" id="a2-5"><span class="n"></span><span class="t">If you have the <strong>470µF</strong> capacitor: put it across the rails right next to the ULN2003's power wires, stripe (−) to the − rail. If not yet, skip this step and come back in stage A5.</span></label></li>
+      <li><label><input type="checkbox" id="a2-6"><span class="n"></span><span class="t"><strong>Boot check.</strong> Plug the USB cable in and out five times, waiting for the device to show as connected in Home Assistant each time. It must boot every time.</span></label></li>
+    </ol>
+    <div class="note">
+      <p><strong>Why GPIO2 stays empty.</strong> GPIO2 is a boot-strapping pin: Espressif's documentation says it must be high when the chip resets for a normal boot. A ULN2003 input would pull it towards ground through about 13 kΩ, so the stepper uses GPIO0, 1, 3 and 4 and skips it. If the C3 ever fails to boot, check that nothing is connected to GPIO2, GPIO8 or GPIO9.</p>
+    </div>
+    <p class="check-line"><strong>Ready when:</strong> it boots five times out of five. Then turn on "Sails Turning" in Home Assistant: the four LEDs on the ULN2003 board chase and the motor shaft turns.</p>
+  </div>
+
+  <div class="stage" data-stage="a3">
+    <div class="stage-head"><h3>A3 · Pixel lead and pixels</h3><span class="tag">Firmware task 5</span></div>
+    <ol class="steps">
+      <li><label><input type="checkbox" id="a3-1"><span class="n"></span><span class="t">Find the <strong>input end</strong> of the pixel string: the arrows printed on each pixel point away from it.</span></label></li>
+      <li><label><input type="checkbox" id="a3-2"><span class="n"></span><span class="t">With the multimeter on continuity, trace each wire of the input connector to the first pixel's pads (5V, GND, DIN). Write down which colour is which. Cheap strings do not always use red for 5V.</span></label></li>
+      <li><label><input type="checkbox" id="a3-3"><span class="n"></span><span class="t">Make an adapter lead: the mating 3-pin JST connector with three jumper wires soldered on, each covered in heatshrink.</span></label></li>
+      <li><label><input type="checkbox" id="a3-4"><span class="n"></span><span class="t">Solder the <strong>1N5408</strong> into the lead's 5V wire, with the diode's stripe towards the pixel connector. Cover it in heatshrink. Its leads are too thick for breadboard holes, so keep it in the lead.</span></label></li>
+      <li><label><input type="checkbox" id="a3-5"><span class="n"></span><span class="t">Leave the pixel capacitor out for now. The one-hour run in stage A5 decides whether you need one.</span></label></li>
+      <li><label><input type="checkbox" id="a3-6"><span class="n"></span><span class="t">Put the <strong>330R</strong> resistor on the breadboard. Wire <code>GPIO6</code> → one end of the resistor, and the other end → the lead's <span class="wire c-data">data</span> wire.</span></label></li>
+      <li><label><input type="checkbox" id="a3-7"><span class="n"></span><span class="t">Wire the lead's 5V jumper (the end before the diode) to the <span class="wire c-5v">+ rail</span> and its GND jumper to the <span class="wire c-gnd">− rail</span>.</span></label></li>
+      <li><label><input type="checkbox" id="a3-8"><span class="n"></span><span class="t">With the USB cable still unplugged, plug the pixel string into the lead.</span></label></li>
+      <li><label><input type="checkbox" id="a3-9"><span class="n"></span><span class="t">Power up. Turn on each of the four mill lights in Home Assistant in turn and check that only its own pixel lights.</span></label></li>
+    </ol>
+    <p class="check-line"><strong>Ready when:</strong> each Home Assistant light lights only its own pixel, and red, green and blue look right. Wrong colours usually mean the pixels use a different colour order, or they are RGBW parts: tell Claude.</p>
+  </div>
+
+  <div class="stage" data-stage="a4">
+    <div class="stage-head"><h3>A4 · Button</h3><span class="tag">Firmware task 7</span></div>
+    <ol class="steps">
+      <li><label><input type="checkbox" id="a4-1"><span class="n"></span><span class="t">Unplug the USB cable. Press a 4-leg tactile button into the breadboard across the centre channel.</span></label></li>
+      <li><label><input type="checkbox" id="a4-2"><span class="n"></span><span class="t">Use two <strong>diagonally opposite</strong> legs. Diagonal legs are always switched, whichever way the button sits.</span></label></li>
+      <li><label><input type="checkbox" id="a4-3"><span class="n"></span><span class="t">Wire one leg → <code>GPIO5</code> and the other → the <span class="wire c-gnd">− rail</span>. No resistor is needed.</span></label></li>
+    </ol>
+    <p class="check-line"><strong>Ready when:</strong> a short press turns the whole mill on, and the next short press turns it off. A long press does nothing.</p>
+  </div>
+
+  <div class="stage" data-stage="a5">
+    <div class="stage-head"><h3>A5 · 470µF and the one-hour run</h3><span class="tag">Firmware task 12</span></div>
+    <ol class="steps">
+      <li><label><input type="checkbox" id="a5-1"><span class="n"></span><span class="t">Unplug the USB cable. Fit the <strong>470µF, 16V</strong> across the rails next to the ULN2003's power wires, stripe to the − rail.</span></label></li>
+      <li><label><input type="checkbox" id="a5-3"><span class="n"></span><span class="t">Plug in the <strong>charger</strong> (not the laptop). With the sails turning and all four lights on, check the 5V rail stays above 4.5V on the multimeter.</span></label></li>
+      <li><label><input type="checkbox" id="a5-2"><span class="n"></span><span class="t">Do the one-hour run. <strong>Only if a pixel flickers</strong>, solder a capacitor of 100µF to 1000µF (10V or more) onto the pixel lead at the connector end, on the diode's striped side, stripe to GND, and run again.</span></label></li>
+    </ol>
+    <p class="check-line"><strong>Ready when:</strong> the rail holds above 4.5V and an hour of sails with steady lights shows no flicker. Whether you fitted a pixel capacitor tells you whether the permanent build needs one.</p>
+  </div>
+
+  <button class="reset" type="button" id="reset-a">Clear Part A ticks</button>
+</section>
+
+<section id="permanent">
+  <span class="eyebrow">Part B</span>
+  <h2>Permanent build</h2>
+  <p>There is no base box. The C3 and the ULN2003 sit on a small <strong>electronics plate</strong> fixed to the mounting pad, inside the mill's ground floor. The mill comes down over the plate and lifts straight off it. Two connectors split the two, the motor's own <strong>5-pin JST-XH</strong> and a <strong>4-pin JST</strong>: the mill side carries the motor and pixel wiring and gets glued into the tower; the plate side stays reachable whenever the mill is lifted. Only the USB cable leaves the mill, out through a notch at the back of the base ring and away behind scenery. Do every test in B5 before any part of the tower is closed.</p>
+
+  <div class="block">
+    <h3>The two mill connectors</h3>
+    <figure>
+      <div class="figbox">
+        <svg viewBox="0 0 760 200" role="img" aria-label="Two connectors cross the split. The motor's own 5-pin JST-XH carries the coils blue, pink, yellow and orange plus the red common, and plugs straight into the ULN2003 board. A separate 4-pin JST carries 5V, GND, pixel data and the doorbell button.">
+          <g font-family="JetBrains Mono, monospace" font-size="12" fill="currentColor">
+            <text x="200" y="40" text-anchor="middle" font-weight="600">Motor plug · 5-pin JST-XH</text>
+            <rect x="40" y="76" width="320" height="48" rx="6" fill="none" stroke="currentColor" stroke-width="2"/>
+              <circle cx="60" cy="100" r="13" fill="none" stroke="var(--w-blue)" stroke-width="3"/><text x="60" y="104" text-anchor="middle">1</text>
+              <text x="60" y="142" text-anchor="middle">blue</text>
+              <circle cx="130" cy="100" r="13" fill="none" stroke="var(--w-pink)" stroke-width="3"/><text x="130" y="104" text-anchor="middle">2</text>
+              <text x="130" y="142" text-anchor="middle">pink</text>
+              <circle cx="200" cy="100" r="13" fill="none" stroke="var(--w-yellow)" stroke-width="3"/><text x="200" y="104" text-anchor="middle">3</text>
+              <text x="200" y="142" text-anchor="middle">yellow</text>
+              <circle cx="270" cy="100" r="13" fill="none" stroke="var(--w-orange)" stroke-width="3"/><text x="270" y="104" text-anchor="middle">4</text>
+              <text x="270" y="142" text-anchor="middle">orange</text>
+              <circle cx="340" cy="100" r="13" fill="none" stroke="var(--w-5v)" stroke-width="3"/><text x="340" y="104" text-anchor="middle">5</text>
+              <text x="340" y="142" text-anchor="middle">red</text>
+            <text x="200" y="186" text-anchor="middle" font-size="11" opacity="0.8">plugs straight into the ULN2003 board</text>
+            <text x="575" y="40" text-anchor="middle" font-weight="600">Mill plug · 4-pin JST</text>
+            <rect x="450" y="76" width="250" height="48" rx="6" fill="none" stroke="currentColor" stroke-width="2"/>
+              <circle cx="470" cy="100" r="13" fill="none" stroke="var(--w-5v)" stroke-width="3"/><text x="470" y="104" text-anchor="middle">1</text>
+              <text x="470" y="142" text-anchor="middle">+5V</text>
+              <circle cx="540" cy="100" r="13" fill="none" stroke="var(--w-gnd)" stroke-width="3"/><text x="540" y="104" text-anchor="middle">2</text>
+              <text x="540" y="142" text-anchor="middle">GND</text>
+              <circle cx="610" cy="100" r="13" fill="none" stroke="var(--w-data)" stroke-width="3"/><text x="610" y="104" text-anchor="middle">3</text>
+              <text x="610" y="142" text-anchor="middle">data</text>
+              <circle cx="680" cy="100" r="13" fill="none" stroke="var(--w-btn)" stroke-width="3"/><text x="680" y="104" text-anchor="middle">4</text>
+              <text x="680" y="142" text-anchor="middle">button</text>
+            <text x="575" y="186" text-anchor="middle" font-size="11" opacity="0.8">to the C3 board's 5V/GND and data/button leads</text>
+          </g>
+        </svg>
+      </div>
+      <figcaption>The two plugs have different pin counts, so they cannot go into each other's sockets. On the 4-pin plug, data sits next to GND so the two can twist together up the tower, and the button pin is at the far end.</figcaption>
+    </figure>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Plug</th><th>Pin</th><th>Signal</th><th>Mill side</th><th>Plate side</th></tr></thead>
+        <tbody>
+          <tr><td>Motor</td><td class="num">1–5</td><td><span class="wire c-orange">Coils + common</span></td><td>The motor's own five wires, extended down the tower, in their original order</td><td>ULN2003 motor socket</td></tr>
+          <tr><td>Mill</td><td class="num">1</td><td><span class="wire c-5v">+5V</span></td><td>Through the 1N5408 to the pixels' 5V</td><td>C3 board 5V/GND lead, 5V</td></tr>
+          <tr><td>Mill</td><td class="num">2</td><td><span class="wire c-gnd">GND</span></td><td>Pixel GND, the doorbell's second leg, and the pixel capacitor (−) if fitted</td><td>C3 board 5V/GND lead, GND</td></tr>
+          <tr><td>Mill</td><td class="num">3</td><td><span class="wire c-data">Data</span></td><td>330R → pixel data in</td><td>C3 board data/button lead, GPIO6</td></tr>
+          <tr><td>Mill</td><td class="num">4</td><td><span class="wire c-btn">Button</span></td><td>Doorbell's first leg</td><td>C3 board data/button lead, GPIO5</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="note">
+      <p><strong>Your C3 board's own connectors.</strong> The C3 board has three JSTs: a 2-pin for 5V/GND, the 5-way stepper header (GPIO0, 1, 2, 3, 4 with GPIO2's position empty, the middle one of five) and a 2-pin for data/button. Keep both 2-pin connectors inside the plate and never unplug them: if the 5V/GND lead went into the data/button socket, 5V would land on GPIO5 and GPIO6 and could kill the C3. Label them, or make one a 3-pin housing with a blank position so they cannot swap.</p>
+      <p><strong>Where the diode, capacitor and resistor go.</strong> They sit on the <em>mill side</em> of the 4-pin plug, in the short pigtail that comes down the central passage into the ground floor. When the mill is lifted, the pigtail comes up with it and the parts are still reachable.</p>
+      <p><strong>Spare conductor.</strong> If you might add a fifth pixel to light the sails later, use a 5-pin JST for the mill plug now and run a spare wire up the tower while it is open.</p>
+    </div>
+  </div>
+
+  <div class="stage" data-stage="b1">
+    <div class="stage-head"><h3>B1 · Parts and tools</h3><span class="tag">Before kit assembly</span></div>
+    <ol class="steps">
+      <li><label><input type="checkbox" id="b1-1"><span class="n"></span><span class="t">A 5-pin JST-XH extension for the motor (plug and socket) and a 4-pin JST pair for the mill plug, with spare crimps. Practise a few crimps first.</span></label></li>
+      <li><label><input type="checkbox" id="b1-2"><span class="n"></span><span class="t">Thin multi-core cable for the motor run (5 cores, about 0.1–0.2 mm²) and a thin twisted pair or 3-core for the pixel lead if the string's own lead is too short.</span></label></li>
+      <li><label><input type="checkbox" id="b1-3"><span class="n"></span><span class="t">A ply offcut for the electronics plate, a piece of perfboard, female header strip for the C3, M3 standoffs for the ULN2003 board, black card for the light-tight bay, heatshrink, and a P-clip or cable-tie anchor for the USB cable.</span></label></li>
+      <li><label><input type="checkbox" id="b1-5"><span class="n"></span><span class="t">A tiny tactile switch to set into the wall beside the door as the doorbell, plus thin wire to run it inside to the pigtail.</span></label></li>
+      <li><label><input type="checkbox" id="b1-4"><span class="n"></span><span class="t">The 470µF (16V) capacitor, the 330R and the 1N5408, plus the pixel capacitor if the one-hour run showed you need it. The breadboard ones can move across once bench testing ends.</span></label></li>
+    </ol>
+  </div>
+
+  <div class="stage" data-stage="b2">
+    <div class="stage-head"><h3>B2 · Mill-side harness</h3><span class="tag">During tower assembly</span></div>
+    <ol class="steps">
+      <li><label><input type="checkbox" id="b2-1"><span class="n"></span><span class="t">Extend the motor's five wires with the 5-core cable. Make the splice <strong>inside the cap</strong>, which is removable, so the joint stays reachable. Solder, heatshrink each wire, then heatshrink over the bundle.</span></label></li>
+      <li><label><input type="checkbox" id="b2-2"><span class="n"></span><span class="t">Feed the motor cable and the pixel string up through the 12 mm passages as each former goes in. Keep the pixel lead and the motor cable apart where the passage allows.</span></label></li>
+      <li><label><input type="checkbox" id="b2-3"><span class="n"></span><span class="t">Twist the pixel data wire with its GND wire along the whole run, about one twist every 2–3 cm.</span></label></li>
+      <li><label><input type="checkbox" id="b2-4"><span class="n"></span><span class="t">Bring both cables down the central passage into the ground floor, with enough slack (about 10 cm) that the plug reaches the plate's header while the mill is held just above it.</span></label></li>
+      <li><label><input type="checkbox" id="b2-5"><span class="n"></span><span class="t">On the pixel 5V wire, solder the <strong>1N5408</strong> in line, stripe towards the pixels (up the tower). The diode's other end goes to pin 1 of the 4-pin plug.</span></label></li>
+      <li><label><input type="checkbox" id="b2-6"><span class="n"></span><span class="t"><strong>Only if the bench run needed one</strong>, solder the pixel capacitor (100µF to 1000µF) between the pixel side of the diode and the pixel GND wire, stripe to GND.</span></label></li>
+      <li><label><input type="checkbox" id="b2-7"><span class="n"></span><span class="t">Solder the <strong>330R</strong> in line in the pixel data wire.</span></label></li>
+      <li><label><input type="checkbox" id="b2-8"><span class="n"></span><span class="t">Heatshrink each joint, then sleeve the little group of parts together and cable-tie it to the cable so no strain falls on the solder joints.</span></label></li>
+      <li><label><input type="checkbox" id="b2-10"><span class="n"></span><span class="t">Set the tiny tactile switch into the wall beside the door as the doorbell, before that wall closes. Run its two wires inside: one to pin 4 of the 4-pin plug, the other to GND.</span></label></li>
+      <li><label><input type="checkbox" id="b2-9"><span class="n"></span><span class="t">Crimp and insert: the motor's five wires into the 5-pin plug in their original order (blue, pink, yellow, orange, red); and the 4-pin plug as +5V 1, GND 2, data 3, button 4.</span></label></li>
+    </ol>
+  </div>
+
+  <div class="stage" data-stage="b3">
+    <div class="stage-head"><h3>B3 · Electronics plate</h3><span class="tag">Any time before B5</span></div>
+    <ol class="steps">
+      <li><label><input type="checkbox" id="b3-0"><span class="n"></span><span class="t">Measure the inside of the ground floor and the door height. Size the plate to fit inside the base ring with clearance, and keep everything on it under about 30 mm tall.</span></label></li>
+      <li><label><input type="checkbox" id="b3-1"><span class="n"></span><span class="t">Fix the perfboard to the ply plate and solder female header strip to it so the C3 plugs in and can be pulled out for replacement.</span></label></li>
+      <li><label><input type="checkbox" id="b3-2"><span class="n"></span><span class="t">Plug the C3 board's 5V/GND lead into a small split, so 5V and GND feed both the ULN2003 and the 4-pin socket.</span></label></li>
+      <li><label><input type="checkbox" id="b3-3"><span class="n"></span><span class="t">Plug the C3 board's 5-way stepper lead onto the ULN2003 board's <code>IN1–IN4</code> (GPIO0, 1, 3, 4, with GPIO2's position empty). Wire the ULN2003's <code>+</code> and <code>−</code> from the split, and fit the <strong>470µF</strong> right at those power pins.</span></label></li>
+      <li><label><input type="checkbox" id="b3-4"><span class="n"></span><span class="t">Leave the ULN2003's motor socket free: the motor's own 5-pin plug goes straight into it.</span></label></li>
+      <li><label><input type="checkbox" id="b3-5"><span class="n"></span><span class="t">Fit the 4-pin socket on the plate. Wire pins 1 and 2 from the 5V/GND split, and pins 3 and 4 from the C3 board's data/button lead (GPIO6 to pin 3, GPIO5 to pin 4).</span></label></li>
+      <li><label><input type="checkbox" id="b3-6"><span class="n"></span><span class="t">Label the C3 board's two 2-pin leads, or make them physically different, so they can never be swapped.</span></label></li>
+    </ol>
+  </div>
+
+  <div class="stage" data-stage="b4">
+    <div class="stage-head"><h3>B4 · Light, heat and cable</h3><span class="tag">Ground floor</span></div>
+    <ol class="steps">
+      <li><label><input type="checkbox" id="b4-1"><span class="n"></span><span class="t">Desolder the four step LEDs on the ULN2003 board. Paint over the C3's red power LED and blue LED with black paint.</span></label></li>
+      <li><label><input type="checkbox" id="b4-2"><span class="n"></span><span class="t">Build a light-tight black card bay around the plate at the back of the ground floor, with its own ceiling, so nothing shows through the doorway or up the tower. Leave a small vent gap low down for the ULN2003's heat.</span></label></li>
+      <li><label><input type="checkbox" id="b4-3"><span class="n"></span><span class="t">Fix the plate to the pad with the C3's USB-C socket facing the notch at the back of the base ring. Keep the antenna end (opposite the socket) clear of the ULN2003 and at least 2 cm from any steel ballast.</span></label></li>
+      <li><label><input type="checkbox" id="b4-4"><span class="n"></span><span class="t">Clamp the USB cable to the plate within about 3 cm of the socket, so a tug on the cable never reaches the C3. Run it out through the notch and away behind the scenery.</span></label></li>
+      <li><label><input type="checkbox" id="b4-5"><span class="n"></span><span class="t">Place the ULN2003 and the 4-pin socket where both mill plugs reach them with the mill lifted a little.</span></label></li>
+    </ol>
+  </div>
+
+  <div class="stage" data-stage="b5">
+    <div class="stage-head"><h3>B5 · Checks before anything is glued</h3><span class="tag">Firmware tasks 2–12 again</span></div>
+    <ol class="steps">
+      <li><label><input type="checkbox" id="b5-1"><span class="n"></span><span class="t">With nothing powered, check continuity from each 4-pin socket pin to its C3 pin or rail, and from the C3's GPIO0, 1, 3, 4 to the ULN2003's IN1–IN4.</span></label></li>
+      <li><label><input type="checkbox" id="b5-2"><span class="n"></span><span class="t">Check there is no short between 4-pin pins 1 and 2 (5V and GND). With a capacitor fitted, the meter reading climbs slowly as it charges. That is normal; a steady reading near 0 Ω is not.</span></label></li>
+      <li><label><input type="checkbox" id="b5-3"><span class="n"></span><span class="t">On the mill-side harness, use the meter's diode test across the 1N5408: about 0.5–0.7V one way, nothing the other way.</span></label></li>
+      <li><label><input type="checkbox" id="b5-4"><span class="n"></span><span class="t">Plug the harness in, connect the charger, and repeat the A2 boot check: five power cycles, five clean boots.</span></label></li>
+      <li><label><input type="checkbox" id="b5-5"><span class="n"></span><span class="t">Run the bench checks again through the real harness: sails both ways, each pixel in turn, the button, then the one-hour run with sails and steady lights.</span></label></li>
+      <li><label><input type="checkbox" id="b5-6"><span class="n"></span><span class="t">Measure the 5V rail at the ULN2003 with everything running: above 4.5V.</span></label></li>
+      <li><label><input type="checkbox" id="b5-7"><span class="n"></span><span class="t">In a dark room, with the sails turning and all lights on, look through the door and windows: no light from the bay. After the one-hour run, feel the bay: warm is fine, hot is not.</span></label></li>
+    </ol>
+    <p class="check-line"><strong>Ready when:</strong> every check passes through the real harness. Only then close the tower.</p>
+  </div>
+
+  <button class="reset" type="button" id="reset-b">Clear Part B ticks</button>
+</section>
+
+<section id="trouble">
+  <span class="eyebrow">Troubleshooting</span>
+  <h2>If something is wrong</h2>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>What you see</th><th>Likely cause</th><th>What to do</th></tr></thead>
+      <tbody>
+        <tr><td>C3 does not boot</td><td>Something on a boot-strapping pin (GPIO2, GPIO8, GPIO9)</td><td>Check nothing is connected to those three pins.</td></tr>
+        <tr><td>Motor buzzes or shakes but does not turn</td><td>IN1–IN4 out of order, or the ULN2003 power jumper is off</td><td>Check GPIO0, 1, 3 and 4 go to IN1–IN4 in order; refit the jumper.</td></tr>
+        <tr><td>C3 resets when the sails start</td><td>Supply dips on the shared 5V rail</td><td>Use the 2A charger, not a laptop port. Fit the 470µF at the ULN2003.</td></tr>
+        <tr><td>No pixel lights</td><td>Lead on the output end, diode backwards, or data not reaching the first pixel</td><td>Check the arrows, the diode stripe towards the pixels, and the 330R in the data wire.</td></tr>
+        <tr><td>Colours wrong (red shows green)</td><td>Different colour order, or RGBW pixels</td><td>Tell Claude; it is a one-line firmware change.</td></tr>
+        <tr><td>Pixels flicker only when the motor runs</td><td>Stepper noise on the data line or the supply</td><td>Fit the 470µF and a pixel capacitor, twist data with GND, and move the data wire away from the coil wires.</td></tr>
+        <tr><td>Charger gives no power through a USB-C to USB-C cable</td><td>The board lacks the USB-C CC resistors</td><td>Use a USB-A to USB-C cable.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<footer>
+  <p>Wire colours in this guide are suggestions for clarity, except the motor's own blue, pink, yellow, orange and red, which are fixed. Voltages assume the 1N5408 diode drop for the pixels and USB-C power into the C3 (decided 2 October 2026). The electronics live on a plate inside the mill's ground floor with no base box and no ballast; the stepper uses GPIO0, 1, 3 and 4 with GPIO2 empty, pixel data is on GPIO6, the button is a doorbell beside the door, and the pixel capacitor is fitted only if the one-hour run needs it (decided 3 October 2026).</p>
+</footer>
+
+</div>
+
+<script>
+(function () {
+  var boxes = Array.prototype.slice.call(document.querySelectorAll('ol.steps input[type="checkbox"]'));
+  var KEY = 'windmill-wiring-ticks-v1';
+  var state = {};
+  try { state = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch (e) { state = {}; }
+
+  function save() {
+    try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* storage unavailable */ }
+  }
+
+  function updateProgress() {
+    document.querySelectorAll('.stage').forEach(function (stage) {
+      var inputs = stage.querySelectorAll('ol.steps input');
+      if (!inputs.length) return;
+      var done = 0;
+      inputs.forEach(function (i) { if (i.checked) done++; });
+      var head = stage.querySelector('.stage-head');
+      var p = head.querySelector('.stage-progress');
+      if (!p) { p = document.createElement('span'); p.className = 'stage-progress'; head.appendChild(p); }
+      p.textContent = done + ' / ' + inputs.length + ' done';
+    });
+  }
+
+  boxes.forEach(function (b) {
+    if (state[b.id]) b.checked = true;
+    b.addEventListener('change', function () {
+      if (b.checked) state[b.id] = 1; else delete state[b.id];
+      save(); updateProgress();
+    });
+  });
+
+  function clearPart(prefixes) {
+    boxes.forEach(function (b) {
+      if (prefixes.some(function (p) { return b.id.indexOf(p) === 0; })) { b.checked = false; delete state[b.id]; }
+    });
+    save(); updateProgress();
+  }
+  document.getElementById('reset-a').addEventListener('click', function () { clearPart(['a']); });
+  document.getElementById('reset-b').addEventListener('click', function () { clearPart(['b']); });
+
+  updateProgress();
+})();
+</script>
