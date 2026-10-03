@@ -1,5 +1,5 @@
-# Controls: the Mill Button turns the whole mill on and off, and reverses the
-# turning sails, with no network.
+# Controls: the Mill Button turns the whole mill on and off, reverses the
+# turning sails and leaves disco, with no network.
 # Needs substitution: button_pin (button to ground, no external pull-up).
 # Exposes ids: mill_button (binary sensor "Mill Button"),
 #   mill_toggle (script), mill_on (script), mill_off (script),
@@ -7,10 +7,15 @@
 # Uses ids: mill_sails_turn and mill_sails_reverse_switch (switch "Reverse
 #   Rotation") from the sails package; mill_door_glow, mill_stone_window,
 #   mill_bin_window, mill_door_lamp and mill_lamplight (script) from the lights
-#   package. The scripts use only these firmware entities, turn on no light
+#   package; mill_disco_mode (switch "Disco Mode") from the disco package.
+#   The scripts use only these firmware entities, turn on no light
 #   themselves and never touch the strip. Only the long
 #   press changes the sail direction, and only through the Reverse Rotation
 #   switch, never through the direction global.
+# In disco, a short press turns the mill off as it does outside disco, and the
+# disco check then turns "Disco Mode" off. A long press turns "Disco Mode" off,
+# so the lights take the lamplight look and the sails keep their direction.
+# The button never starts disco.
 
 binary_sensor:
   - platform: gpio
@@ -25,8 +30,8 @@ binary_sensor:
     filters:
       - delayed_on_off: 20ms
     # The only handler. A press of 50-500 ms toggles the mill. A press of
-    # 1-5 s reverses the turning sails. Each acts on release. Any other press
-    # does nothing.
+    # 1-5 s leaves disco while "Disco Mode" is on, else reverses the turning
+    # sails. Each acts on release. Any other press does nothing.
     on_click:
       - min_length: 50ms
         max_length: 500ms
@@ -35,7 +40,17 @@ binary_sensor:
       - min_length: 1s
         max_length: 5s
         then:
-          - script.execute: mill_reverse_from_button
+          - if:
+              condition:
+                switch.is_on: mill_disco_mode
+              then:
+                - switch.turn_off: mill_disco_mode
+                - logger.log:
+                    format: "Button: disco off"
+                    level: INFO
+                    tag: mill.controls
+              else:
+                - script.execute: mill_reverse_from_button
 
 script:
   # Off if the sails turn or any light is on, else on.

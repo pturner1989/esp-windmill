@@ -818,7 +818,7 @@ partitions="mill_door_glow mill_stone_window mill_bin_window mill_door_lamp"
 interior="mill_door_glow mill_stone_window mill_bin_window"
 
 test_controls_button() {
-  local package header word missing="" button pin on_keys clicks
+  local package header word missing="" button pin on_keys clicks calls
   package=$(cat "$repo/packages/mill_controls.yaml" 2> /dev/null || true)
   expect_setting "node includes the controls package" "$(section packages "$(cat "$repo/windmill.yaml")")" \
     '^  controls: !include packages/mill_controls\.yaml$'
@@ -826,7 +826,7 @@ test_controls_button() {
     "^ +number: '?\\\$\\{button_pin\\}'?$"
   header=$(awk '!/^#/ { exit } 1' <<< "$package")
   for word in button_pin mill_button mill_toggle mill_on mill_off mill_reverse_from_button \
-    mill_sails_reverse_switch; do
+    mill_sails_reverse_switch mill_disco_mode mill_lamplight; do
     grep -qw -- "$word" <<< "$header" || missing+=" $word"
   done
   if [[ -n $header && -z $missing ]]; then
@@ -857,9 +857,24 @@ test_controls_button() {
   else
     fail "Mill Button has exactly two click ranges" "on_click: $clicks"
   fi
-  expect_setting "Mill Button runs the toggle on a 50-500 ms click and the reverse on a 1-5 s click" \
-    "$(flat "$clicks")" \
-    '^ ?- min_length: 50ms max_length: 500ms then: - script\.execute: id: mill_toggle - min_length: 1s max_length: 5s then: - script\.execute: id: mill_reverse_from_button ?$'
+  expect_same "Mill Button click ranges are 50-500 ms and 1-5 s" \
+    $'50ms 500ms\n1s 5s' "$(awk '$2 == "min_length:" { min = $3 } $1 == "max_length:" { print min " " $2 }' <<< "$clicks")"
+  expect_same "a 50-500 ms click runs only the toggle" "then script.execute id=mill_toggle" "$(click_calls "$clicks" 50ms)"
+  calls=$(click_calls "$clicks" 1s)
+  expect_same "a 1-5 s click turns Disco Mode off while it is on, else runs the reverse" \
+    $'then/if/condition switch.is_on id=mill_disco_mode\nthen/if/then switch.turn_off id=mill_disco_mode\nthen/if/else script.execute id=mill_reverse_from_button' \
+    "$(grep -v ' logger\.log ' <<< "$calls")"
+  expect_setting "a 1-5 s click in disco logs that the button left disco" \
+    "$(grep ' logger\.log ' <<< "$calls")" '^then/if/then logger\.log format=Button: disco off;level=INFO;tag=mill\.controls(;|$)'
+}
+
+# click_calls CLICKS MIN prints "path key arguments" for each call of the click
+# range in CLICKS (the lines under on_click) whose min_length is MIN.
+click_calls() {
+  local item
+  item=$(awk -v min="$2" '/^      - / { on = ($2 == "min_length:" && $3 == min) } on' <<< "$1")
+  [[ -n $item ]] || return 0
+  action_calls - <<< "click:"$'\n'"$(sed 's/^    //' <<< "$item")" | cut -f 2- | tr '\t' ' '
 }
 
 test_controls_scripts() {
@@ -885,10 +900,10 @@ test_controls_scripts() {
   # Only the controls package's own logs. The disco package logs under mill.disco.
   logs=$( (action_calls "$repo/packages/mill_controls.yaml" | grep -P '\tlogger\.log\t') || true)
   bad=$(grep -vE ';level=INFO;tag=mill\.controls(;|$)' <<< "$logs" || true)
-  if [[ $(grep -c . <<< "$logs") -eq 3 && -z $bad ]]; then
-    pass "the three controls log calls use level INFO and tag mill.controls"
+  if [[ $(grep -c . <<< "$logs") -eq 4 && -z $bad ]]; then
+    pass "the four controls log calls use level INFO and tag mill.controls"
   else
-    fail "the three controls log calls use level INFO and tag mill.controls" "log calls: $logs"
+    fail "the four controls log calls use level INFO and tag mill.controls" "log calls: $logs"
   fi
   expected=$'script.stop id=mill_on\nscript.stop id=mill_lamplight\nswitch.turn_off id=mill_sails_turn'
   for id in $partitions; do expected+=$'\n'"light.turn_off id=$id;state=false"; done

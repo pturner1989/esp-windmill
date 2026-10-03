@@ -326,6 +326,7 @@ footer { color: var(--muted); font-size: 0.9rem; border-top: 1px solid var(--rul
       <li><label><input type="checkbox" id="a4-3"><span class="n"></span><span class="t">Wire one leg → <code>GPIO5</code> and the other → the <span class="wire c-gnd">− rail</span>. No resistor is needed.</span></label></li>
     </ol>
     <p class="check-line"><strong>Ready when:</strong> a short press turns the whole mill on, and the next short press turns it off. While the sails turn, holding it for 1–5 s and letting go reverses them.</p>
+    <p>In disco, a short press turns the mill off and ends disco. Holding it for 1–5 s and letting go leaves disco to the lamplight look, and the sails do not reverse. Other presses do nothing, and the button never starts disco. The button needs no WiFi or Home Assistant, so it acts the same with no network.</p>
   </div>
 
   <div class="stage" data-stage="a5">
@@ -336,6 +337,22 @@ footer { color: var(--muted); font-size: 0.9rem; border-top: 1px solid var(--rul
       <li><label><input type="checkbox" id="a5-2"><span class="n"></span><span class="t">Do the one-hour run. <strong>Only if a pixel flickers</strong>, solder a capacitor of 100µF to 1000µF (10V or more) onto the pixel lead at the connector end, on the diode's striped side, stripe to GND, and run again.</span></label></li>
     </ol>
     <p class="check-line"><strong>Ready when:</strong> the rail holds above 4.5V and an hour of sails with steady lights shows no flicker. Whether you fitted a pixel capacitor tells you whether the permanent build needs one.</p>
+  </div>
+
+  <div class="stage" data-stage="a6">
+    <div class="stage-head"><h3>A6 · Disco checks by eye</h3><span class="tag">Disco Mode</span></div>
+    <ol class="steps">
+      <li><label><input type="checkbox" id="a6-1"><span class="n"></span><span class="t">With the mill dark, turn on "Disco Mode" in Home Assistant. All four pixels flash in turn, one flash each per beat, a quarter beat apart. The sails stay stopped.</span></label></li>
+      <li><label><input type="checkbox" id="a6-2"><span class="n"></span><span class="t">Each flash starts bright and fades to a dim glow, not to dark. The firing order changes every bar, and the colours change every 16 beats.</span></label></li>
+      <li><label><input type="checkbox" id="a6-3"><span class="n"></span><span class="t">Change "Disco BPM": the chase speeds up or slows down at once, with no jump. At 90 BPM, "Disco Rate" 2× doubles the flashes. Above 90 BPM, Home Assistant refuses 2× and shows 1×.</span></label></li>
+      <li><label><input type="checkbox" id="a6-4"><span class="n"></span><span class="t">With the sails turning, turn "Disco Mode" on and off. The sails keep their speed and direction. After off, all four lights show the lamplight look within 4 s.</span></label></li>
+      <li><label><input type="checkbox" id="a6-5"><span class="n"></span><span class="t">Time 5 sail turns at 170 steps/s with and without disco, then at the highest safe speed. At each speed the two times agree within 2%.</span></label></li>
+      <li><label><input type="checkbox" id="a6-6"><span class="n"></span><span class="t">In disco, hold the button about 0.7 s, then about 6 s: nothing changes. Hold it about 2 s: the lamplight look returns within 4 s, and the sails do not reverse.</span></label></li>
+      <li><label><input type="checkbox" id="a6-7"><span class="n"></span><span class="t">In disco, short-press the button. The sails stop within 1 s, all four pixels are dark within 4 s, and Home Assistant shows "Disco Mode" off.</span></label></li>
+      <li><label><input type="checkbox" id="a6-8"><span class="n"></span><span class="t">Switch the WiFi access point off and repeat the two button checks. The chase keeps running, and the button acts the same.</span></label></li>
+      <li><label><input type="checkbox" id="a6-9"><span class="n"></span><span class="t">Cut the power in disco. The mill comes back dark and stopped, with "Disco Mode" off.</span></label></li>
+    </ol>
+    <p class="check-line"><strong>Ready when:</strong> every disco check passes by eye.</p>
   </div>
 
   <button class="reset" type="button" id="reset-a">Clear Part A ticks</button>
