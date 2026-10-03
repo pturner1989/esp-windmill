@@ -1,7 +1,7 @@
 # Disco mode: feature request notes
 
 **Date:** 2026-10-03
-**Status:** Research complete (research.md). Next: `/sddv2:requirements`.
+**Status:** Spec approved (specification.md v1.3). Next: `/sddv2:plan`.
 
 ## Request
 
