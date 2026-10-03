@@ -17,7 +17,8 @@ The user wants a disco mode for the real mill: when music is playing, switch the
 
 - **BPM range 60–180.** 180 BPM is 3 flashes a second, the common safe limit for flashing light (photosensitive epilepsy guidance).
 - **HA entities:** a "Disco Mode" switch and a "Disco BPM" number.
-- **Look:** each beat, all four pixels jump to new saturated colours, a quarter of the colour wheel apart, then decay towards dim before the next beat. This is how the visualisation does it.
+- **Look (user feedback 2026-10-03: the lights must not all flash at the same time):** a staggered chase. Each pixel flashes once per beat, a quarter beat after the one before, in an order that reshuffles every bar of four beats. Each flash takes a new saturated colour and decays towards dim. This is how the visualisation does it (version 3).
+- **Flash rate:** each single light flashes at most 3 times a second at 180 BPM. The mill as a whole changes 4 times per beat, up to 12 times a second; research should confirm this is acceptable for small, separate lights.
 
 ## Constraints from the handbook and the bench-firmware spec
 
