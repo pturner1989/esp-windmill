@@ -1,4 +1,5 @@
-# Lights: four SK6812 pixels on one data line, one light for each pixel.
+# Lights: four SK6812 RGBW pixels on one data line, one light for each pixel.
+# Each pixel takes four bytes in GRBW order.
 # Needs substitution: pixel_pin (pixel data).
 # Exposes ids: mill_pixels (the internal strip, never written directly),
 #   mill_door_glow (light "Mill Door Glow", pixel 0),
@@ -6,8 +7,10 @@
 #   mill_bin_window (light "Mill Bin Floor Window", pixel 2),
 #   mill_door_lamp (light "Mill Door Lamp", pixel 3).
 # Each light applies its own colour correction, not the strip's, so the 60%
-# cap is on the strip and on every light. Every pixel write goes through one
-# of the four lights. A light with no effect sends frames only while it changes.
+# cap is on the strip and on every light. The cap lists four values: with
+# only three, ESPHome leaves the white channel at 100%. Every pixel write goes
+# through one of the four lights. A light with no effect sends frames only
+# while it changes.
 # The three interior lights offer "Lamplight", an addressable_flicker. It
 # writes at most once each update_interval, whatever the loop rate, and each
 # light draws its own random values. The door lamp has no effect and stays
@@ -21,8 +24,8 @@ light:
     pin: ${pixel_pin}
     num_leds: 4
     chipset: SK6812
-    channel_colors: GRB
-    color_correct: [60%, 60%, 60%]
+    channel_colors: GRBW
+    color_correct: [60%, 60%, 60%, 60%]
     max_refresh_rate: 20ms
     restore_mode: ALWAYS_OFF
 
@@ -33,7 +36,7 @@ light:
       - id: mill_pixels
         from: 0
         to: 0
-    color_correct: [60%, 60%, 60%]
+    color_correct: [60%, 60%, 60%, 60%]
     restore_mode: ALWAYS_OFF
     default_transition_length: 3s
     effects:
@@ -49,7 +52,7 @@ light:
       - id: mill_pixels
         from: 1
         to: 1
-    color_correct: [60%, 60%, 60%]
+    color_correct: [60%, 60%, 60%, 60%]
     restore_mode: ALWAYS_OFF
     default_transition_length: 3s
     effects:
@@ -65,7 +68,7 @@ light:
       - id: mill_pixels
         from: 2
         to: 2
-    color_correct: [60%, 60%, 60%]
+    color_correct: [60%, 60%, 60%, 60%]
     restore_mode: ALWAYS_OFF
     default_transition_length: 3s
     effects:
@@ -81,6 +84,6 @@ light:
       - id: mill_pixels
         from: 3
         to: 3
-    color_correct: [60%, 60%, 60%]
+    color_correct: [60%, 60%, 60%, 60%]
     restore_mode: ALWAYS_OFF
     default_transition_length: 3s

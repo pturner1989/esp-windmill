@@ -533,10 +533,11 @@ YAML
 }
 
 # expect_cap_and_off NAME ITEM checks that the light ITEM carries a 60% colour
-# correction on each of its three channels and boots off.
+# correction on each of its four channels (red, green, blue and white) and
+# boots off.
 expect_cap_and_off() {
-  expect_setting "$1 is capped at 60% on every channel" "$(flat "$(item_key "$2" color_correct)")" \
-    '^ ?- 0\.6 - 0\.6 - 0\.6 ?$'
+  expect_setting "$1 is capped at 60% on every channel, white included" \
+    "$(flat "$(item_key "$2" color_correct)")" '^ ?- 0\.6 - 0\.6 - 0\.6 - 0\.6 ?$'
   expect_setting "$1 boots off" "$2" '^    restore_mode: ALWAYS_OFF$'
 }
 
@@ -569,7 +570,7 @@ test_lights_settings() {
   expect_setting "pixel strip is internal" "$strip" '^    internal: true$'
   expect_setting "pixel strip has 4 pixels" "$strip" '^    num_leds: 4$'
   expect_setting "pixel strip chipset is SK6812" "$strip" '^    chipset: SK6812$'
-  expect_setting "pixel strip channel order is GRB" "$strip" '^    channel_colors: GRB$'
+  expect_setting "pixel strip is RGBW in GRBW channel order" "$strip" '^    channel_colors: GRBW$'
   expect_setting "pixel strip sends at most one frame each 20 ms" "$strip" '^    max_refresh_rate: 20ms$'
   expect_cap_and_off "pixel strip" "$strip"
   for entry in "mill_door_glow:0:Mill Door Glow" "mill_stone_window:1:Mill Stone Floor Window" \

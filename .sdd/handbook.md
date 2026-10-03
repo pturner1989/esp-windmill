@@ -64,7 +64,8 @@ Every change must keep these true. A review must check them.
 
 1. **Boot state is dark and stopped.** After any reset or power cut, lights are off and the sails do not turn.
    Never use `restore_mode: RESTORE_*` or `restore_value` on anything that would start the motor or lights at boot.
-2. **Brightness cap is 60%.** Enforce it in firmware with `color_correct: [60%, 60%, 60%]`,
+2. **Brightness cap is 60%.** Enforce it in firmware with `color_correct: [60%, 60%, 60%, 60%]`
+   (the pixels are RGBW, so the cap has four channels),
    not only in scripts, so a Home Assistant command cannot exceed it.
    A partition light applies its own correction, not the strip's, so set it on the strip and on every partition.
 3. **Sail speed stays in 60–320 steps/s.** Set the bounds on the number entity. Do not allow a path that sets speed outside this range.

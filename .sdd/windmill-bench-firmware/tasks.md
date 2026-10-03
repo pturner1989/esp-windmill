@@ -207,7 +207,7 @@ HA shows four lights, "Mill Door Glow" (pixel 0), "Mill Stone Floor Window" (1),
 **AC-1:**
 - **Given:** The example secrets in place
 - **When:** The reviewer runs the check script and reads the lights package
-- **Then:** All runs pass; the strip is internal, uses the pixel pin substitution (GPIO6), four SK6812 pixels and GRB order; and the strip and all four partition lights each carry a 60% colour correction on every channel and restore mode ALWAYS_OFF
+- **Then:** All runs pass; the strip is internal, uses the pixel pin substitution (GPIO6), four SK6812 RGBW pixels and GRBW order; and the strip and all four partition lights each carry a 60% colour correction on every channel and restore mode ALWAYS_OFF
 
 **AC-2:**
 - **Given:** The node file and the packages

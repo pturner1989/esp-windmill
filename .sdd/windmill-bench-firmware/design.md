@@ -1,6 +1,6 @@
 # Design: Windmill Bench Firmware
 
-**Version:** 1.2
+**Version:** 1.3
 **Date:** 2026-10-02
 **Status:** Approved
 **Linked Specification** `.sdd/windmill-bench-firmware/specification.md`
@@ -34,7 +34,7 @@
 - **Network:** `reboot_timeout: 0s` on WiFi and the API. The default `ap_timeout` (90 s) meets FR-24's 2-minute bound.
 
 ### Quality Attributes
-- **NFR-01:** `color_correct: [60%, 60%, 60%]` is on the strip and on each partition. Every pixel write goes through a partition: from HA, from Lamplight, from `mill_on` and from `mill_pixel_test`. The strip is `internal`, and no action targets it (no `addressable_set`).
+- **NFR-01:** `color_correct: [60%, 60%, 60%, 60%]` is on the strip and on each partition. Every pixel write goes through a partition: from HA, from Lamplight, from `mill_on` and from `mill_pixel_test`. The strip is `internal`, and no action targets it (no `addressable_set`).
 - **NFR-02:** `ALWAYS_OFF` is on all five lights and both switches, and only `Sail Speed` restores a value. Speed stays in 60–320 by three means: the number bounds; rounding, which maps [60,320] onto multiples of 10 inside [60,320]; and, at turn-on, the same half-up rounding followed by a clamp to 60–320, where NaN gives 170. Pins exist only as substitutions in `windmill.yaml`: GPIO0, GPIO1, GPIO3 and GPIO4 for the stepper (GPIO2 unconnected), GPIO6 for pixel data and GPIO5 for the button.
 - **NFR-03:** The bench package is self-contained. `scripts/check.sh` fails if more than one line of `windmill.yaml` names `mill_bench.yaml`.
 - **Loop timing (single core):** The stepper takes at most one step per `loop()`, so blocking work in a loop pass can delay a step and lower the real speed. Each Lamplight effect returns early until its `update_interval` (50 ms) has passed, so it writes at the same rate whatever the loop rate. The strip's `max_refresh_rate` (20 ms) also limits frames to 50 per second. Each frame blocks for about 0.1–0.2 ms (`rmt_tx_wait_all_done` and a 50 µs delay), so Lamplight blocks for at most about 1% of loop time. Toggles write no flash, because no switch or global restores. `flash_write_interval` (60 s) batches speed saves. The re-arm is O(1) every 10 minutes. The only log lines are one INFO line per button toggle. All objects are allocated at setup.
@@ -144,12 +144,12 @@
 - **Details:**
   ```
   light: esp32_rmt_led_strip id mill_pixels "Mill Pixels" internal, pin ${pixel_pin}, num_leds 4, chipset SK6812,
-         channel_colors GRB, color_correct [60%,60%,60%], max_refresh_rate 20ms, ALWAYS_OFF
+         channel_colors GRBW, color_correct [60%,60%,60%,60%], max_refresh_rate 20ms, ALWAYS_OFF
   partition × 4: mill_door_glow | mill_stone_window | mill_bin_window | mill_door_lamp,
-         segments [mill_pixels from N to N], color_correct [60%,60%,60%], ALWAYS_OFF, default_transition_length 3s
+         segments [mill_pixels from N to N], color_correct [60%,60%,60%,60%], ALWAYS_OFF, default_transition_length 3s
   interior three only: effects [addressable_flicker name Lamplight, update_interval 50ms, intensity 10%]
   ```
-- **Rationale:** FR-10: one pixel per light, with GRB order. FR-11: each partition is its own `LightState`, and its Lamplight draws its own random values. Lamplight changes the pixel only once per `update_interval`, so it looks the same at any loop rate, and `max_refresh_rate` is a second limit on frames (see Loop timing). The effect writes through the partition's view, so the partition's 60% cap applies to every flicker value (NFR-01). The interval and intensity are Phase 4 starting values. The intensity must stay above 0%, because the effect takes a random value modulo the intensity. FR-12: the door lamp has no effects. FR-13 and NFR-01: the cap is on every partition and on the strip. FR-14: steady lights send no frames. FR-20: `ALWAYS_OFF`. FR-41: the 3 s default fade.
+- **Rationale:** FR-10: one pixel per light, with GRBW order. FR-11: each partition is its own `LightState`, and its Lamplight draws its own random values. Lamplight changes the pixel only once per `update_interval`, so it looks the same at any loop rate, and `max_refresh_rate` is a second limit on frames (see Loop timing). The effect writes through the partition's view, so the partition's 60% cap applies to every flicker value (NFR-01). The interval and intensity are Phase 4 starting values. The intensity must stay above 0%, because the effect takes a random value modulo the intensity. FR-12: the door lamp has no effects. FR-13 and NFR-01: the cap is on every partition and on the strip. FR-14: steady lights send no frames. FR-20: `ALWAYS_OFF`. FR-41: the 3 s default fade.
 
 #### Controls package — `packages/mill_controls.yaml`
 - **Responsibility:** Turns the whole mill on and off from the button, with no network needed.
@@ -263,7 +263,7 @@
 
 ## Risks and Dependencies
 
-- **RGBW pixels (spec Open Question 1).** If the pixels are RGBW, set `is_rgbw: true` and `channel_colors: GRBW`, and use four `color_correct` values on the strip and every partition. Then recompute the AT-11 limit. Only `mill_lights.yaml` changes.
+- **RGBW pixels (spec Open Question 1).** The bench showed that the pixels are RGBW. `channel_colors: GRBW` sets the four-byte pixel format on its own: ESPHome 2026.9.1 rejects `is_rgbw` next to `channel_colors`. The strip and every partition use four `color_correct` values, because with three values ESPHome leaves the white channel at 100%. Only `mill_lights.yaml` changed. The AT-11 limit must still be recomputed from the RGBW datasheet.
 - **ULN2003 counter wrap.** `current_uln_pos_` is an int32. It wraps after about 77 days of continuous running at 320 steps/s (146 days at 170). The coil phase survives the wrap, because 2³² is a multiple of 4. Signed overflow is undefined behaviour by the C++ standard. It is benign with current code generation (GCC on RISC-V wraps signed adds). A restart clears the counter. Accepted.
 - **RMT refill under WiFi load.** On the C3, `rmt_symbols` defaults to 96, which is exactly one 4-pixel frame. If AT-29 shows flicker after the hardware fixes, the first firmware fix is to raise `rmt_symbols`.
 - **ESP-IDF output on USB (FR-28).** ESP-IDF writes its own log lines to the USB-Serial-JTAG console even with `baud_rate: 0`. `log_level: NONE` turns them off. The boot ROM banner and the bootloader lines still print, and AT-21 allows them. Crash data still reaches the operator: ESPHome's crash handler replays it when `esphome logs` connects; the ESP-IDF panic dump still prints on USB during a crash, is not a log line, and is accepted.
@@ -297,5 +297,6 @@
 | 1.0 | 2026-10-02 | Pete Turner (with Claude) | Initial design. |
 | 1.1 | 2026-10-02 | Pete Turner (with Claude) | Review fixes: Lamplight as `addressable_flicker` with a rate limit, ESP-IDF log level NONE, check order and staged-secrets check, spec v1.5. |
 | 1.2 | 2026-10-03 | Pete Turner (with Claude) | Stepper on GPIO0, 1, 3, 4 with GPIO2 unconnected; pixel data on GPIO6; spec v1.6. |
+| 1.3 | 2026-10-03 | Pete Turner (with Claude) | Pixels are SK6812 RGBW (GRBW order), found at the bench; four-value colour correction. |
 
 ---
