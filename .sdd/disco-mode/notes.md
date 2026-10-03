@@ -1,7 +1,7 @@
 # Disco mode: feature request notes
 
 **Date:** 2026-10-03
-**Status:** Not started. Start with `/sddv2:research` after windmill-bench-firmware is implemented.
+**Status:** Research complete (research.md). Next: `/sddv2:requirements`.
 
 ## Request
 
