@@ -1,0 +1,125 @@
+# Sails: the 28BYJ-48 stepper on a ULN2003 board.
+# Needs substitutions: sails_pin_a, sails_pin_b, sails_pin_c, sails_pin_d
+#   (ULN2003 IN1 to IN4) and sails_forward_direction ("1" or "-1").
+# Exposes ids: mill_sails (stepper), mill_sails_turn (switch "Sails Turning"),
+#   mill_sail_speed (number "Sail Speed"), mill_sails_rearm (script),
+#   mill_sails_reverse (global, true while reversed) and
+#   mill_sails_reverse_switch (switch "Reverse Rotation").
+
+# The sail direction. It starts forward at every boot.
+globals:
+  - id: mill_sails_reverse
+    type: bool
+    initial_value: "false"
+    restore_value: false
+
+stepper:
+  - platform: uln2003
+    id: mill_sails
+    pin_a: ${sails_pin_a}
+    pin_b: ${sails_pin_b}
+    pin_c: ${sails_pin_c}
+    pin_d: ${sails_pin_d}
+    step_mode: FULL_STEP
+    max_speed: 170 steps/s
+    # Keep the coils energised so the stopped sails hold their place.
+    sleep_when_done: false
+
+switch:
+  - platform: template
+    name: Sails Turning
+    id: mill_sails_turn
+    optimistic: true
+    restore_mode: ALWAYS_OFF
+    turn_on_action:
+      # Round half up to a multiple of 10 and keep it in 60-320. An unknown
+      # speed gives 170.
+      - stepper.set_speed:
+          id: mill_sails
+          speed: !lambda |-
+            float s = id(mill_sail_speed).state;
+            return std::isnan(s) ? 170.0f : std::clamp(std::floor((s + 5) / 10) * 10, 60.0f, 320.0f);
+      - script.execute: mill_sails_rearm
+    # A target equal to the current position stops the sails on the next step.
+    turn_off_action:
+      - stepper.set_target:
+          id: mill_sails
+          target: !lambda "return id(mill_sails).current_position;"
+
+  # Sets the direction. While the sails turn, the re-arm reverses them at once.
+  # While they are stopped, it only sets the direction for the next start.
+  - platform: template
+    name: Reverse Rotation
+    id: mill_sails_reverse_switch
+    optimistic: true
+    restore_mode: ALWAYS_OFF
+    turn_on_action:
+      - globals.set:
+          id: mill_sails_reverse
+          value: "true"
+      - if:
+          condition:
+            switch.is_on: mill_sails_turn
+          then:
+            - script.execute: mill_sails_rearm
+    turn_off_action:
+      - globals.set:
+          id: mill_sails_reverse
+          value: "false"
+      - if:
+          condition:
+            switch.is_on: mill_sails_turn
+          then:
+            - script.execute: mill_sails_rearm
+
+number:
+  - platform: template
+    name: Sail Speed
+    id: mill_sail_speed
+    min_value: 60
+    max_value: 320
+    step: 10
+    initial_value: 170
+    unit_of_measurement: steps/s
+    optimistic: false
+    restore_value: true
+    # ESPHome rejects a value outside 60-320 before this action runs.
+    set_action:
+      - if:
+          condition:
+            lambda: "return std::floor((x + 5) / 10) * 10 == x;"
+          then:
+            - lambda: "id(mill_sail_speed).publish_state(x);"
+            - stepper.set_speed:
+                id: mill_sails
+                speed: !lambda "return x;"
+          # Set the rounded value one loop pass later. The number saves the raw
+          # value after this action, so the rounded value is saved last.
+          else:
+            - delay: 0ms
+            - number.set:
+                id: mill_sail_speed
+                value: !lambda "return std::floor((x + 5) / 10) * 10;"
+
+script:
+  # Re-base to 0, then aim far ahead in the chosen direction. Both calls run
+  # in one loop pass, so no step falls between them.
+  - id: mill_sails_rearm
+    then:
+      - stepper.report_position:
+          id: mill_sails
+          position: 0
+      - stepper.set_target:
+          id: mill_sails
+          target: !lambda "return ${sails_forward_direction} * (id(mill_sails_reverse) ? -1 : 1) * 10000000;"
+
+# Re-arm every 10 minutes while the sails turn, so they never reach their
+# target. At 320 steps/s one span lasts about 8.7 h.
+interval:
+  - interval: 10min
+    then:
+      - if:
+          condition:
+            switch.is_on: mill_sails_turn
+          then:
+            - script.execute: mill_sails_rearm

@@ -1,0 +1,608 @@
+<title>MM02 Mill at Dusk</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Alegreya+SC:wght@500;700&family=Alegreya+Sans:ital,wght@0,400;0,500;0,700;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one dusk scene drawn to scale, controls that mirror the real Home Assistant entities, then a key. Deliberately single-theme (night). */
+:root {
+  --night: #0c1220;
+  --panel: #151d2e;
+  --ink: #e9e2d4;
+  --muted: #9aa3b5;
+  --rule: #2a3449;
+  --amber: #ffa24a;
+  --matchwood: #d9b981;
+  --font-display: "Alegreya SC", "Palatino Linotype", Georgia, serif;
+  --font-body: "Alegreya Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--night); color: var(--ink);
+  font-family: var(--font-body); font-size: 17px; line-height: 1.55;
+  padding-inline: 16px; padding-block: 0 56px;
+}
+.wrap { max-width: 900px; margin-inline: auto; display: grid; gap: 28px; }
+header { display: grid; gap: 10px; padding-top: 36px; }
+.eyebrow { font-family: var(--font-mono); font-size: 0.74rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--amber); }
+h1 { font-family: var(--font-display); font-weight: 700; font-size: clamp(2.3rem, 6vw, 3.6rem); line-height: 1.02; margin: 0; letter-spacing: 0.01em; text-wrap: balance; }
+h2 { font-family: var(--font-display); font-weight: 500; font-size: 1.5rem; margin: 0; }
+p { margin: 0; max-width: 64ch; }
+.lede { color: var(--muted); font-size: 1.08rem; }
+a { color: var(--amber); }
+:focus-visible { outline: 2px solid var(--amber); outline-offset: 3px; }
+
+figure { margin: 0; display: grid; gap: 10px; }
+.stage { position: relative; border-radius: 6px; overflow: hidden; border: 1px solid var(--rule); background: var(--night); }
+canvas { display: block; width: 100%; height: auto; }
+figcaption { color: var(--muted); font-size: 0.92rem; }
+
+.controls { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; }
+.toggle {
+  font: 500 0.95rem var(--font-body); color: var(--ink);
+  background: var(--panel); border: 1px solid var(--rule); border-radius: 999px;
+  padding: 7px 14px 7px 10px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px;
+}
+.toggle .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--rule); box-shadow: inset 0 0 0 1px var(--muted); }
+.toggle[aria-pressed="true"] .dot { background: var(--amber); box-shadow: 0 0 8px var(--amber); }
+.toggle:hover { border-color: var(--muted); }
+.speed { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; background: var(--panel); border: 1px solid var(--rule); border-radius: 999px; padding: 6px 14px; min-width: 0; }
+.speed label { font-weight: 500; font-size: 0.95rem; }
+.speed input { accent-color: var(--amber); width: 150px; max-width: 40vw; }
+.seg { display: inline-flex; border: 1px solid var(--rule); border-radius: 999px; overflow: hidden; background: var(--panel); }
+.seg button { font: 500 0.9rem var(--font-mono); color: var(--muted); background: none; border: 0; padding: 7px 12px; cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--rule); }
+.seg button[aria-pressed="true"] { color: var(--night); background: var(--amber); }
+.seg button:disabled { opacity: 0.35; cursor: not-allowed; }
+.tap { font: 700 0.95rem var(--font-body); color: var(--night); background: var(--matchwood); border: 0; border-radius: 999px; padding: 8px 18px; cursor: pointer; }
+.tap:active { transform: scale(0.96); }
+.readout { font-family: var(--font-mono); font-size: 0.8rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+.key { display: grid; gap: 4px; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); margin: 0; padding: 0; list-style: none; }
+.key li { display: grid; grid-template-columns: 26px 1fr; gap: 10px; align-items: start; padding: 8px 0; border-top: 1px solid var(--rule); min-width: 0; }
+.key .m { width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid var(--amber); color: var(--ink); font: 500 0.75rem var(--font-mono); display: grid; place-items: center; margin-top: 1px; }
+.key strong { font-weight: 700; }
+.key span.sub { color: var(--muted); display: block; font-size: 0.92rem; }
+
+.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0; border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; }
+.facts div { padding: 12px 14px; border-right: 1px solid var(--rule); border-bottom: 1px solid var(--rule); display: grid; gap: 2px; min-width: 0; }
+.facts dt { font-family: var(--font-mono); font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.facts dd { margin: 0; font-family: var(--font-display); font-size: 1.25rem; font-variant-numeric: tabular-nums; }
+.facts dd small { font-family: var(--font-body); font-size: 0.85rem; color: var(--muted); }
+footer { color: var(--muted); font-size: 0.9rem; border-top: 1px solid var(--rule); padding-top: 14px; }
+</style>
+
+<div class="wrap">
+  <header>
+    <span class="eyebrow">Matchmaker MM02 · Norfolk tower mill · artist's impression</span>
+    <h1>MM02 Mill at Dusk</h1>
+    <p class="lede">How the finished model should look on the sill once the sails turn and the four pixels are lit. Proportions follow the kit: 305 mm to the top of the cap and a 355 mm sail span. The controls below behave like the real Home Assistant entities.</p>
+  </header>
+
+  <figure>
+    <div class="stage"><canvas id="scene" role="img" aria-label="A matchstick Norfolk tower mill at dusk on a snowy ground: a round planked base drum with a lit doorway and a lantern beside it, an octagonal tapered tower with three amber windows, a rounded cap with a fantail, and four lattice sails turning anticlockwise."></canvas></div>
+    <figcaption>Drawn to scale from the kit's dimensions and Hobby's product photo. The base drum and tower proportions are estimated from that photo. Sails turn anticlockwise, seen from the front, as on traditional English mills.</figcaption>
+  </figure>
+
+  <div class="controls" role="group" aria-label="Mill controls">
+    <button class="toggle" id="t-sails" type="button" aria-pressed="true"><span class="dot"></span>Sails Turning</button>
+    <div class="speed">
+      <label for="speed">Sail Speed</label>
+      <input id="speed" type="range" min="60" max="320" step="10" value="170">
+      <span class="readout" id="readout">170 steps/s</span>
+    </div>
+    <button class="toggle" id="t-lights" type="button" aria-pressed="true"><span class="dot"></span>Mill Lights</button>
+    <button class="toggle" id="t-disco" type="button" aria-pressed="false"><span class="dot"></span>Disco Mode</button>
+    <div class="speed">
+      <label for="bpm">Disco BPM</label>
+      <input id="bpm" type="range" min="60" max="180" step="1" value="120">
+      <span class="readout" id="bpm-readout">120 BPM</span>
+    </div>
+    <div class="seg" role="group" aria-label="Disco Rate">
+      <button type="button" id="r-half" aria-pressed="false">½×</button>
+      <button type="button" id="r-one" aria-pressed="true">1×</button>
+      <button type="button" id="r-two" aria-pressed="false">2×</button>
+    </div>
+    <button class="tap" type="button" id="tap">Disco Tap</button>
+    <button class="toggle" id="t-labels" type="button" aria-pressed="false"><span class="dot"></span>Show key</button>
+  </div>
+  <p class="lede" style="font-size:0.95rem">Disco Mode chases the four pixels round the mill: each light flashes once per step, a quarter step after the one before, and the order reshuffles every bar. The colour scheme holds for a 16-beat phrase, then changes. <strong>Disco Rate</strong> runs the chase at half, normal or double time; 2× is only offered while each light stays at three flashes a second or fewer, the usual safe limit. Tap <strong>Disco Tap</strong> on the beat: one tap lines the flashes up with the music, four or more set the tempo too. It all stays inside the 60% brightness cap. On the real mill this is the next firmware feature, after the bench build.</p>
+
+  <section style="display:grid;gap:12px">
+    <h2>Key</h2>
+    <ol class="key">
+      <li><span class="m">1</span><span><strong>Mill Door Glow</strong><span class="sub">Pixel 1, inside the ground floor, seen through the doorway. Lamplight flicker.</span></span></li>
+      <li><span class="m">2</span><span><strong>Mill Stone Floor Window</strong><span class="sub">Pixel 2, behind the lower tower window. Flickers on its own.</span></span></li>
+      <li><span class="m">3</span><span><strong>Mill Bin Floor Window</strong><span class="sub">Pixel 3, behind the upper windows. Flickers on its own.</span></span></li>
+      <li><span class="m">4</span><span><strong>Mill Door Lamp</strong><span class="sub">Pixel 0, first on the string: the lantern on its bracket by the door. Steady, casting a pool on the ground.</span></span></li>
+      <li><span class="m">5</span><span><strong>Doorbell</strong><span class="sub">The Mill Button: a short press toggles the whole mill.</span></span></li>
+      <li><span class="m">6</span><span><strong>Removable cap</strong><span class="sub">Holds the 28BYJ-48 driving the sail shaft directly, with louvred vents each side.</span></span></li>
+      <li><span class="m">7</span><span><strong>Fantail</strong><span class="sub">Kit detail at the back of the cap. Not motorised.</span></span></li>
+      <li><span class="m">8</span><span><strong>Electronics bay</strong><span class="sub">C3 and ULN2003 on a plate in the base, in a light-tight bay behind the door.</span></span></li>
+      <li><span class="m">9</span><span><strong>USB cable</strong><span class="sub">Leaves through a notch at the back of the base and runs away behind the scenery.</span></span></li>
+    </ol>
+  </section>
+
+  <dl class="facts">
+    <div><dt>Default speed</dt><dd>170 <small>steps/s</small></dd></div>
+    <div><dt>Sail rotation</dt><dd>≈ 5 <small>rpm, 12 s a turn</small></dd></div>
+    <div><dt>Lamp colour</dt><dd>255 / 120 / 40</dd></div>
+    <div><dt>Brightness cap</dt><dd>60 <small>%</small></dd></div>
+    <div><dt>Light fade</dt><dd>3 <small>s</small></dd></div>
+  </dl>
+
+  <footer>Reference: <a href="https://stocktonmodeller.co.uk/products/norfolk-windmill-matchstick-model-kit-mm02">Matchmaker MM02 Norfolk Windmill kit</a>. Speeds use 2048 steps per sail turn; the real gearbox gives about 0.5% more speed.</footer>
+</div>
+
+<script>
+(function () {
+  var canvas = document.getElementById('scene');
+  var ctx = canvas.getContext('2d');
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // Scene space in millimetres: x right from the mill centre, y up from the ground.
+  var VIEW_W = 500, VIEW_H = 560, GROUND = 70;
+  var S = 1, W = 0, H = 0, dpr = 1;
+  var body = document.createElement('canvas'); // pre-rendered static mill and scenery
+  var bctx = body.getContext('2d');
+
+  var state = {
+    sails: !reduce, speed: 170, lightsTarget: 1, lightLevel: 1, labels: false,
+    angle: 0.35, flicker: [1, 1, 1], flickerT: 0,
+    disco: false, bpm: 120, rate: 1, taps: [], discoClock: 0, beat: -1, env: 1, envs: [1, 1, 1, 1], pixBeat: [-1, -1, -1, -1], bar: -1, order: [0, 1, 2, 3],
+    discoCols: [[255, 140, 60], [255, 140, 60], [255, 140, 60], [255, 170, 90]]
+  };
+  var AMBER = [[255, 140, 60], [255, 140, 60], [255, 140, 60], [255, 170, 90]];
+  function hsl(h, sat, l) {
+    h = ((h % 360) + 360) % 360 / 360;
+    function f(n) { var k = (n + h * 12) % 12, a = sat * Math.min(l, 1 - l); return Math.round(255 * (l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1)))); }
+    return [f(0), f(8), f(4)];
+  }
+
+  function X(x) { return W / 2 + x * S; }
+  function Y(y) { return H - GROUND * S - y * S; }
+
+  function rng(seed) {
+    return function () {
+      seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+      var t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+
+  // Matchwood at dusk: base tone scaled by face lighting, with per-stick jitter.
+  function wood(shade, jitter) {
+    var s = Math.max(0, Math.min(1.2, shade + jitter));
+    var r = Math.round(150 * s + 18), g = Math.round(122 * s + 16), b = Math.round(88 * s + 22);
+    return 'rgb(' + r + ',' + g + ',' + b + ')';
+  }
+
+  function quad(c, ax, ay, bx, by, cx2, cy2, dx, dy) {
+    c.beginPath(); c.moveTo(X(ax), Y(ay)); c.lineTo(X(bx), Y(by)); c.lineTo(X(cx2), Y(cy2)); c.lineTo(X(dx), Y(dy)); c.closePath();
+  }
+
+  function drawStatic() {
+    var c = bctx, r = rng(7);
+    c.setTransform(dpr, 0, 0, dpr, 0, 0);
+    c.clearRect(0, 0, W, H);
+
+    // Sky
+    var sky = c.createLinearGradient(0, 0, 0, Y(0));
+    sky.addColorStop(0, '#0a1124'); sky.addColorStop(0.55, '#1c2a4a'); sky.addColorStop(0.85, '#4a4560'); sky.addColorStop(1, '#a8664a');
+    c.fillStyle = sky; c.fillRect(0, 0, W, Y(0));
+    // Stars
+    for (var i = 0; i < 70; i++) {
+      var sx = r() * W, sy = r() * Y(0) * 0.6;
+      c.fillStyle = 'rgba(235,235,255,' + (0.25 + r() * 0.6) + ')';
+      c.fillRect(sx, sy, r() < 0.15 ? 2 : 1, r() < 0.15 ? 2 : 1);
+    }
+    // Distant hedgerow line
+    c.fillStyle = '#1b2233';
+    c.beginPath(); c.moveTo(0, Y(10));
+    for (var hx = -260; hx <= 260; hx += 10) c.lineTo(X(hx), Y(10 + Math.sin(hx * 0.05) * 5 + r() * 7));
+    c.lineTo(W, Y(0)); c.lineTo(0, Y(0)); c.closePath(); c.fill();
+    // Snowy ground
+    var gr = c.createLinearGradient(0, Y(0), 0, H);
+    gr.addColorStop(0, '#5d6a80'); gr.addColorStop(1, '#2b3346');
+    c.fillStyle = gr; c.fillRect(0, Y(0), W, H - Y(0));
+
+    // Mill shadow on the ground
+    c.fillStyle = 'rgba(10,14,25,0.45)';
+    c.beginPath(); c.ellipse(X(-8), Y(-4), 88 * S, 12 * S, 0, 0, Math.PI * 2); c.fill();
+
+    drawFantail(c);
+    drawTower(c, r);
+    drawSkirt(c, r);
+    drawDrum(c, r);
+    drawCap(c, r);
+    drawDetails(c);
+  }
+
+  function drawFantail(c) {
+    c.lineCap = 'round';
+    c.strokeStyle = wood(0.55, 0); c.lineWidth = 3 * S;
+    c.beginPath(); c.moveTo(X(30), Y(284)); c.lineTo(X(52), Y(318)); c.stroke();
+    var fx = 56, fy = 326, fr = 17;
+    for (var k = 0; k < 8; k++) {
+      var a = k * Math.PI / 4 + 0.2;
+      c.save(); c.translate(X(fx), Y(fy)); c.rotate(-a);
+      c.fillStyle = wood(0.6 + (k % 2) * 0.1, 0);
+      c.beginPath(); c.moveTo(3 * S, -1 * S); c.lineTo(fr * S, -4 * S); c.lineTo(fr * S, 3 * S); c.lineTo(3 * S, 1.5 * S); c.closePath(); c.fill();
+      c.restore();
+    }
+    c.fillStyle = wood(0.7, 0); c.beginPath(); c.arc(X(fx), Y(fy), 3 * S, 0, Math.PI * 2); c.fill();
+  }
+
+  // Octagonal tapered tower: three visible faces, vertical matchsticks.
+  function drawTower(c, r) {
+    var yb = 80, yt = 252, Rb = 54, Rt = 45;
+    var f = [-0.924, -0.383, 0.383, 0.924], shades = [0.95, 0.78, 0.5];
+    for (var face = 0; face < 3; face++) {
+      var xb0 = Rb * f[face], xb1 = Rb * f[face + 1], xt0 = Rt * f[face], xt1 = Rt * f[face + 1];
+      var n = Math.max(4, Math.round((xb1 - xb0) / 2.4));
+      for (var i = 0; i < n; i++) {
+        var a0 = i / n, a1 = (i + 1) / n;
+        quad(c, xb0 + (xb1 - xb0) * a0, yb, xb0 + (xb1 - xb0) * a1, yb, xt0 + (xt1 - xt0) * a1, yt, xt0 + (xt1 - xt0) * a0, yt);
+        c.fillStyle = wood(shades[face], (r() - 0.5) * 0.12); c.fill();
+      }
+      // seams
+      c.strokeStyle = 'rgba(30,20,10,0.22)'; c.lineWidth = Math.max(0.5, 0.25 * S);
+      for (var j = 1; j < n; j++) {
+        var a = j / n;
+        c.beginPath(); c.moveTo(X(xb0 + (xb1 - xb0) * a), Y(yb)); c.lineTo(X(xt0 + (xt1 - xt0) * a), Y(yt)); c.stroke();
+      }
+    }
+    // corner posts
+    c.strokeStyle = 'rgba(25,18,10,0.55)'; c.lineWidth = Math.max(1, 0.6 * S);
+    [-0.383, 0.383].forEach(function (k) { c.beginPath(); c.moveTo(X(Rb * k), Y(yb)); c.lineTo(X(Rt * k), Y(yt)); c.stroke(); });
+  }
+
+  // Flared conical roof between the drum and the tower, radial sticks.
+  function drawSkirt(c, r) {
+    var R0 = 76, y0 = 56, R1 = 54, y1 = 80, e = 6, steps = 60;
+    for (var i = 0; i < steps; i++) {
+      var p0 = -Math.PI / 2 + Math.PI * i / steps, p1 = -Math.PI / 2 + Math.PI * (i + 1) / steps;
+      var shade = 0.5 + 0.45 * Math.cos((p0 + p1) / 2 + 0.6);
+      quad(c, R0 * Math.sin(p0), y0 - e * Math.cos(p0), R0 * Math.sin(p1), y0 - e * Math.cos(p1),
+              R1 * Math.sin(p1), y1 - e * 0.7 * Math.cos(p1), R1 * Math.sin(p0), y1 - e * 0.7 * Math.cos(p0));
+      c.fillStyle = wood(shade, (r() - 0.5) * 0.12); c.fill();
+      c.strokeStyle = 'rgba(30,20,10,0.25)'; c.lineWidth = Math.max(0.5, 0.25 * S); c.stroke();
+    }
+    // eaves edge
+    c.strokeStyle = 'rgba(25,18,10,0.6)'; c.lineWidth = Math.max(1, 0.8 * S);
+    c.beginPath();
+    for (var k = 0; k <= 40; k++) { var p = -Math.PI / 2 + Math.PI * k / 40, px = X(R0 * Math.sin(p)), py = Y(y0 - e * Math.cos(p)); if (k) c.lineTo(px, py); else c.moveTo(px, py); }
+    c.stroke();
+  }
+
+  // Round base drum, vertical sticks, cylindrical shading.
+  function drawDrum(c, r) {
+    var R = 72, h = 56, e = 6, n = 64;
+    for (var i = 0; i < n; i++) {
+      var p0 = -Math.PI / 2 + Math.PI * i / n, p1 = -Math.PI / 2 + Math.PI * (i + 1) / n;
+      var shade = 0.42 + 0.5 * Math.cos((p0 + p1) / 2 + 0.55);
+      quad(c, R * Math.sin(p0), -e * Math.cos(p0), R * Math.sin(p1), -e * Math.cos(p1), R * Math.sin(p1), h - e * Math.cos(p1), R * Math.sin(p0), h - e * Math.cos(p0));
+      c.fillStyle = wood(shade, (r() - 0.5) * 0.14); c.fill();
+      c.strokeStyle = 'rgba(30,20,10,0.22)'; c.lineWidth = Math.max(0.5, 0.25 * S); c.stroke();
+    }
+  }
+
+  // Rounded cap with horizontal planking and the front breast where the shaft exits.
+  function capPath(c) {
+    c.beginPath();
+    c.moveTo(X(-50), Y(250));
+    c.bezierCurveTo(X(-50), Y(290), X(-24), Y(307), X(2), Y(307));
+    c.bezierCurveTo(X(28), Y(307), X(50), Y(290), X(50), Y(250));
+    c.closePath();
+  }
+  function drawCap(c, r) {
+    capPath(c);
+    var g = c.createLinearGradient(X(-50), 0, X(50), 0);
+    g.addColorStop(0, wood(0.95, 0)); g.addColorStop(0.55, wood(0.72, 0)); g.addColorStop(1, wood(0.42, 0));
+    c.fillStyle = g; c.fill();
+    c.save(); capPath(c); c.clip();
+    c.strokeStyle = 'rgba(30,20,10,0.28)'; c.lineWidth = Math.max(0.5, 0.3 * S);
+    for (var y = 252; y < 307; y += 2.6) {
+      c.beginPath(); c.moveTo(X(-55), Y(y)); c.quadraticCurveTo(X(0), Y(y - 4), X(55), Y(y)); c.stroke();
+    }
+    c.restore();
+    // louvred vent (right side)
+    c.fillStyle = 'rgba(12,10,8,0.85)';
+    for (var v = 0; v < 2; v++) c.fillRect(X(22), Y(268 - v * 8), 14 * S, 3 * S);
+    // breast box at the front where the windshaft exits
+    quad(c, -24, 244, 12, 244, 12, 280, -24, 280);
+    c.fillStyle = wood(0.82, 0); c.fill();
+    c.strokeStyle = 'rgba(30,20,10,0.3)'; c.lineWidth = Math.max(0.5, 0.25 * S);
+    for (var sx = -22; sx < 12; sx += 2.4) { c.beginPath(); c.moveTo(X(sx), Y(244)); c.lineTo(X(sx), Y(280)); c.stroke(); }
+    // cap ring at the top of the tower
+    c.strokeStyle = 'rgba(25,18,10,0.6)'; c.lineWidth = Math.max(1, 0.8 * S);
+    c.beginPath(); c.moveTo(X(-50), Y(250)); c.lineTo(X(50), Y(250)); c.stroke();
+  }
+
+  function windowFrame(c, x, y, w, h) {
+    c.fillStyle = 'rgba(22,16,12,0.95)';
+    c.fillRect(X(x - 1.2), Y(y + h + 1.2), (w + 2.4) * S, (h + 2.4) * S);
+  }
+  var WINDOWS = [
+    { x: -40, y: 128, w: 11, h: 15, pix: 1 },
+    { x: -9, y: 202, w: 12, h: 16, pix: 2 },
+    { x: 24, y: 205, w: 8, h: 14, pix: 2 }
+  ];
+  function drawDetails(c) {
+    WINDOWS.forEach(function (w) { windowFrame(c, w.x, w.y, w.w, w.h); });
+    // doorway in the drum
+    c.fillStyle = 'rgba(14,10,8,1)';
+    c.fillRect(X(-11), Y(30), 22 * S, 30 * S);
+    // lantern bracket and lamp body
+    c.strokeStyle = 'rgba(20,16,12,0.95)'; c.lineWidth = Math.max(1, 1.2 * S);
+    c.beginPath(); c.moveTo(X(19), Y(50)); c.lineTo(X(30), Y(50)); c.lineTo(X(30), Y(46)); c.stroke();
+    c.fillStyle = 'rgba(20,16,12,0.95)';
+    c.fillRect(X(26.5), Y(46), 7 * S, 1.5 * S);
+    c.fillRect(X(27), Y(36.5), 6 * S, 1.2 * S);
+    // doorbell push (brass)
+    c.fillStyle = '#6b5a3a'; c.fillRect(X(-19.5), Y(20.5), 5 * S, 6 * S);
+    c.fillStyle = '#d6b45c'; c.beginPath(); c.arc(X(-17), Y(17.5), 1.5 * S, 0, Math.PI * 2); c.fill();
+  }
+
+  // ---- dynamic layers ----
+  function glow(x, y, rad, a, col) {
+    if (a <= 0.01) return;
+    var g = ctx.createRadialGradient(X(x), Y(y), 0, X(x), Y(y), rad * S);
+    g.addColorStop(0, 'rgba(' + col + ',' + (0.8 * a) + ')');
+    g.addColorStop(0.35, 'rgba(' + col + ',' + (0.28 * a) + ')');
+    g.addColorStop(1, 'rgba(' + col + ',0)');
+    ctx.fillStyle = g; ctx.fillRect(X(x - rad), Y(y + rad), rad * 2 * S, rad * 2 * S);
+  }
+  function pane(x, y, w, h, a, rgb) {
+    var lit = 'rgba(' + Math.min(255, rgb[0] + 20) + ',' + Math.min(255, rgb[1] + 30 * a) + ',' + Math.min(255, rgb[2] + 30 * a) + ',' + (0.12 + 0.88 * a) + ')';
+    ctx.fillStyle = a > 0.02 ? lit : 'rgba(40,46,70,0.9)';
+    ctx.fillRect(X(x), Y(y + h), w * S, h * S);
+    ctx.strokeStyle = 'rgba(22,16,12,0.95)'; ctx.lineWidth = Math.max(1, 0.9 * S);
+    ctx.beginPath(); ctx.moveTo(X(x + w / 2), Y(y)); ctx.lineTo(X(x + w / 2), Y(y + h));
+    ctx.moveTo(X(x), Y(y + h / 2)); ctx.lineTo(X(x + w), Y(y + h / 2)); ctx.stroke();
+  }
+
+  function drawLights() {
+    var L = state.lightLevel;
+    var f = state.flicker;
+    var lv = state.disco ? state.envs.map(function (e) { return L * e; }) : [L * f[0], L * f[1], L * f[2], L];
+    var cols = state.disco ? state.discoCols : AMBER;
+    function cs(i) { return cols[i].join(','); }
+    // panes
+    WINDOWS.forEach(function (w) { pane(w.x, w.y, w.w, w.h, lv[w.pix], cols[w.pix]); });
+    // doorway interior glow
+    if (lv[0] > 0.01) {
+      var dg = ctx.createLinearGradient(0, Y(30), 0, Y(0));
+      dg.addColorStop(0, 'rgba(' + cs(0) + ',' + (0.85 * lv[0]) + ')');
+      dg.addColorStop(1, 'rgba(' + cols[0].map(function (v) { return Math.round(v * 0.6); }).join(',') + ',' + (0.6 * lv[0]) + ')');
+      ctx.fillStyle = dg; ctx.fillRect(X(-10), Y(29), 20 * S, 29 * S);
+    }
+    // lantern glass
+    ctx.fillStyle = lv[3] > 0.02 ? 'rgba(' + cs(3) + ',' + (0.25 + 0.75 * lv[3]) + ')' : 'rgba(50,50,60,0.9)';
+    ctx.fillRect(X(27.5), Y(44.5), 5 * S, 8 * S);
+
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    // pool of lamplight on the snow, and spill from the door
+    if (lv[3] > 0.01) {
+      var pg = ctx.createRadialGradient(X(34), Y(-2), 0, X(34), Y(-2), 80 * S);
+      pg.addColorStop(0, 'rgba(' + cs(3) + ',' + (0.55 * lv[3]) + ')'); pg.addColorStop(1, 'rgba(' + cs(3) + ',0)');
+      ctx.fillStyle = pg; ctx.save(); ctx.translate(X(34), Y(-2)); ctx.scale(1, 0.18); ctx.translate(-X(34), -Y(-2));
+      ctx.beginPath(); ctx.arc(X(34), Y(-2), 80 * S, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+    }
+    if (lv[0] > 0.01) {
+      ctx.fillStyle = 'rgba(' + cs(0) + ',' + (0.18 * lv[0]) + ')';
+      ctx.beginPath(); ctx.moveTo(X(-10), Y(0)); ctx.lineTo(X(10), Y(0)); ctx.lineTo(X(22), Y(-16)); ctx.lineTo(X(-22), Y(-16)); ctx.closePath(); ctx.fill();
+    }
+    glow(0, 18, 40, lv[0], cs(0));
+    glow(-34.5, 135, 42, lv[1], cs(1));
+    glow(-3, 210, 44, lv[2], cs(2));
+    glow(28, 212, 26, lv[2] * 0.7, cs(2));
+    glow(30, 40, 46, lv[3], cs(3));
+    ctx.restore();
+  }
+
+  function drawSails() {
+    var hx = -6, hy = 262, fx = 0.94;
+    function P(x, y) { return [X(hx + x * fx), Y(hy + y)]; }
+    var a0 = state.angle;
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    for (var k = 0; k < 4; k++) {
+      var a = a0 + k * Math.PI / 2, ux = Math.cos(a), uy = Math.sin(a), px = -uy, py = ux;
+      var lines = [];
+      var r0 = 38, r1 = 177, wdt = 40, bars = 11;
+      lines.push([[ux * r0 + px * wdt, uy * r0 + py * wdt], [ux * r1 + px * wdt, uy * r1 + py * wdt]]);
+      lines.push([[ux * r0 + px * wdt * 0.5, uy * r0 + py * wdt * 0.5], [ux * r1 + px * wdt * 0.5, uy * r1 + py * wdt * 0.5]]);
+      for (var b = 0; b <= bars; b++) {
+        var rr = r0 + (r1 - r0) * b / bars;
+        lines.push([[ux * rr, uy * rr], [ux * rr + px * wdt, uy * rr + py * wdt]]);
+      }
+      // shadow pass then wood pass
+      [['rgba(20,14,8,0.55)', 3.4], [wood(0.95, 0), 2.2]].forEach(function (pass, pi) {
+        ctx.strokeStyle = pass[0]; ctx.lineWidth = Math.max(1, pass[1] * S);
+        lines.forEach(function (ln) {
+          var p1 = P(ln[0][0], ln[0][1]), p2 = P(ln[1][0], ln[1][1]);
+          ctx.beginPath(); ctx.moveTo(p1[0] + (pi ? 0 : 0.8 * S), p1[1] + (pi ? 0 : 0.8 * S)); ctx.lineTo(p2[0] + (pi ? 0 : 0.8 * S), p2[1] + (pi ? 0 : 0.8 * S)); ctx.stroke();
+        });
+      });
+    }
+    // two crossed stocks through the hub
+    for (var s = 0; s < 2; s++) {
+      var aa = a0 + s * Math.PI / 2, cx = Math.cos(aa) * 181, cy = Math.sin(aa) * 181;
+      var q1 = P(-cx, -cy), q2 = P(cx, cy);
+      ctx.strokeStyle = 'rgba(20,14,8,0.6)'; ctx.lineWidth = 5.2 * S;
+      ctx.beginPath(); ctx.moveTo(q1[0] + S, q1[1] + S); ctx.lineTo(q2[0] + S, q2[1] + S); ctx.stroke();
+      ctx.strokeStyle = wood(1.0, 0); ctx.lineWidth = 3.8 * S;
+      ctx.beginPath(); ctx.moveTo(q1[0], q1[1]); ctx.lineTo(q2[0], q2[1]); ctx.stroke();
+    }
+    var h = P(0, 0);
+    ctx.fillStyle = wood(0.75, 0); ctx.beginPath(); ctx.arc(h[0], h[1], 9 * S, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#b9a37a'; ctx.beginPath(); ctx.arc(h[0], h[1], 2.2 * S, 0, Math.PI * 2); ctx.fill();
+  }
+
+  var MARKERS = [
+    [1, 0, 14], [2, -34.5, 150], [3, -3, 224], [4, 40, 41], [5, -24, 18],
+    [6, -38, 300], [7, 78, 338], [8, -52, 32], [9, 78, 8]
+  ];
+  function drawMarkers() {
+    if (!state.labels) return;
+    var rad = Math.max(9, 7 * S);
+    ctx.font = '500 ' + Math.round(rad * 1.1) + 'px "IBM Plex Mono", monospace';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    MARKERS.forEach(function (m) {
+      var x = X(m[1]), y = Y(m[2]);
+      ctx.fillStyle = 'rgba(12,18,32,0.88)';
+      ctx.beginPath(); ctx.arc(x, y, rad, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#ffa24a'; ctx.lineWidth = 1.6; ctx.stroke();
+      ctx.fillStyle = '#e9e2d4'; ctx.fillText(String(m[0]), x, y + 0.5);
+    });
+  }
+
+  function render() {
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(body, 0, 0);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    drawLights();
+    drawSails();
+    drawMarkers();
+  }
+
+  function resize() {
+    var cssW = canvas.parentElement.clientWidth;
+    var maxH = 780;
+    S = Math.min(cssW / VIEW_W, maxH / VIEW_H);
+    W = cssW; H = Math.round(VIEW_H * S);
+    dpr = Math.min(2, window.devicePixelRatio || 1);
+    canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
+    canvas.style.height = H + 'px';
+    body.width = canvas.width; body.height = canvas.height;
+    drawStatic();
+    render();
+  }
+
+  // ---- animation ----
+  var last = null;
+  function tick(t) {
+    if (last === null) last = t;
+    var dt = Math.min(0.1, (t - last) / 1000); last = t;
+    if (state.sails) state.angle += (state.speed / 2048) * 2 * Math.PI * dt; // anticlockwise seen from the front
+    // 3 s fade, like the firmware's default transition
+    var d = state.lightsTarget - state.lightLevel;
+    if (Math.abs(d) > 0.001) state.lightLevel += Math.sign(d) * Math.min(Math.abs(d), dt / 3);
+    // rate-limited, independent lamplight flicker on the three interior pixels
+    state.flickerT += dt;
+    if (!reduce && state.flickerT >= 0.05) {
+      state.flickerT = 0;
+      for (var i = 0; i < 3; i++) {
+        var target = 1 - Math.random() * 0.22;
+        state.flicker[i] += (target - state.flicker[i]) * 0.35;
+      }
+    }
+    if (state.disco) {
+      state.discoClock += dt;
+      var beats = state.discoClock * state.bpm / 60;
+      var steps = beats * state.rate; // the chase runs at the chosen multiple of the tempo
+      // colour scheme holds for a 16-beat phrase
+      var phrase = Math.floor(beats / 16), base = (phrase * 137 + 20) % 360;
+      // new firing order every bar of four beats, so the chase does not look mechanical
+      var bar = Math.floor(beats / 4);
+      if (bar !== state.bar) {
+        state.bar = bar;
+        var r = rng(bar + 11), o = [0, 1, 2, 3];
+        for (var j = 3; j > 0; j--) { var k = Math.floor(r() * (j + 1)); var tmp = o[j]; o[j] = o[k]; o[k] = tmp; }
+        state.order = o;
+      }
+      // each pixel flashes once per step, a quarter step after the previous one
+      for (var p = 0; p < 4; p++) {
+        var pb = steps - state.order[p] / 4, n = Math.floor(pb), ph = pb - n;
+        state.pixBeat[p] = n;
+        state.discoCols[p] = hsl(base + p * 90, 1, 0.55);
+        state.envs[p] = n < 0 ? 0.15 : (reduce ? 1 : 0.15 + 0.85 * Math.exp(-ph * 5));
+      }
+    }
+    render();
+    requestAnimationFrame(tick);
+  }
+
+  // ---- controls ----
+  var tSails = document.getElementById('t-sails'), tLights = document.getElementById('t-lights'), tLabels = document.getElementById('t-labels');
+  var speed = document.getElementById('speed'), readout = document.getElementById('readout');
+  function syncButtons() {
+    tSails.setAttribute('aria-pressed', String(state.sails));
+    tLights.setAttribute('aria-pressed', String(state.lightsTarget > 0));
+    tLabels.setAttribute('aria-pressed', String(state.labels));
+  }
+  function showSpeed() {
+    var v = state.speed, rpm = v * 60 / 2048;
+    readout.textContent = v + ' steps/s · ' + rpm.toFixed(1) + ' rpm · a turn every ' + (60 / rpm).toFixed(1) + ' s';
+  }
+  tSails.addEventListener('click', function () { state.sails = !state.sails; syncButtons(); });
+  tLights.addEventListener('click', function () { state.lightsTarget = state.lightsTarget > 0 ? 0 : 1; syncButtons(); });
+  tLabels.addEventListener('click', function () { state.labels = !state.labels; syncButtons(); });
+  var tDisco = document.getElementById('t-disco'), bpm = document.getElementById('bpm'), bpmOut = document.getElementById('bpm-readout');
+  var showBpm = function () { bpmOut.textContent = state.bpm + ' BPM · ' + (state.bpm / 60).toFixed(1) + ' flashes/s'; };
+  tDisco.addEventListener('click', function () {
+    state.disco = !state.disco; state.discoClock = 0; state.beat = -1; state.bar = -1; state.pixBeat = [-1, -1, -1, -1];
+    if (state.disco) state.lightsTarget = 1; // disco turns the lights on, starting on the beat
+    tDisco.setAttribute('aria-pressed', String(state.disco)); syncButtons();
+  });
+  function setBpm(v) {
+    var beatsSoFar = state.discoClock * state.bpm / 60;
+    state.bpm = Math.max(60, Math.min(180, Math.round(v)));
+    state.discoClock = beatsSoFar * 60 / state.bpm; // keep the beat count continuous when the tempo changes
+    bpm.value = state.bpm;
+    syncRate(); showBpm();
+  }
+  bpm.addEventListener('input', function () { setBpm(Number(bpm.value)); });
+
+  var rateBtns = { 0.5: document.getElementById('r-half'), 1: document.getElementById('r-one'), 2: document.getElementById('r-two') };
+  function maxRate() { return state.bpm * 2 / 60 <= 3 ? 2 : 1; } // keep each light at 3 flashes/s or fewer
+  function syncRate() {
+    if (state.rate > maxRate()) state.rate = 1;
+    Object.keys(rateBtns).forEach(function (k) {
+      var b = rateBtns[k], r = Number(k);
+      b.disabled = r > maxRate();
+      b.setAttribute('aria-pressed', String(r === state.rate));
+    });
+  }
+  Object.keys(rateBtns).forEach(function (k) {
+    rateBtns[k].addEventListener('click', function () {
+      state.rate = Number(k); syncRate(); showBpm();
+    });
+  });
+
+  // Tap tempo: every tap puts a beat on the tap; four or more taps also set the tempo.
+  document.getElementById('tap').addEventListener('click', function () {
+    var now = performance.now() / 1000;
+    if (!state.disco) {
+      state.disco = true; state.lightsTarget = 1; state.discoClock = 0; state.bar = -1;
+      tDisco.setAttribute('aria-pressed', 'true'); syncButtons();
+    }
+    state.taps = state.taps.filter(function (t) { return now - t < 2.5; });
+    if (state.taps.length && now - state.taps[state.taps.length - 1] > 1.2) state.taps = [];
+    state.taps.push(now);
+    if (state.taps.length > 8) state.taps.shift();
+    if (state.taps.length >= 4) {
+      var span = state.taps[state.taps.length - 1] - state.taps[0];
+      setBpm(60 * (state.taps.length - 1) / span);
+    }
+    var beats = state.discoClock * state.bpm / 60;
+    state.discoClock = Math.round(beats) * 60 / state.bpm; // snap the phase so this moment is a beat
+  });
+
+  function showBpmFull() {
+    bpmOut.textContent = state.bpm + ' BPM · ' + (state.bpm * state.rate / 60).toFixed(1) + ' flashes/s per light';
+  }
+  showBpm = showBpmFull;
+  syncRate(); showBpm();
+  speed.addEventListener('input', function () { state.speed = Number(speed.value); showSpeed(); });
+
+  syncButtons(); showSpeed();
+  window.addEventListener('resize', resize);
+  resize();
+  requestAnimationFrame(tick);
+})();
+</script>

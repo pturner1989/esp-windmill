@@ -1,0 +1,160 @@
+# Controls: the Mill Button turns the whole mill on and off, and reverses the
+# turning sails, with no network.
+# Needs substitution: button_pin (button to ground, no external pull-up).
+# Exposes ids: mill_button (binary sensor "Mill Button"),
+#   mill_toggle (script), mill_on (script), mill_off (script),
+#   mill_reverse_from_button (script).
+# Uses ids: mill_sails_turn and mill_sails_reverse_switch (switch "Reverse
+#   Rotation") from the sails package; mill_door_glow, mill_stone_window,
+#   mill_bin_window and mill_door_lamp from the lights package. The scripts
+#   use only these firmware entities and never touch the strip. Only the long
+#   press changes the sail direction, and only through the Reverse Rotation
+#   switch, never through the direction global.
+
+binary_sensor:
+  - platform: gpio
+    name: Mill Button
+    id: mill_button
+    pin:
+      number: ${button_pin}
+      mode:
+        input: true
+        pullup: true
+      inverted: true
+    filters:
+      - delayed_on_off: 20ms
+    # The only handler. A press of 50-500 ms toggles the mill. A press of
+    # 1-5 s reverses the turning sails. Each acts on release. Any other press
+    # does nothing.
+    on_click:
+      - min_length: 50ms
+        max_length: 500ms
+        then:
+          - script.execute: mill_toggle
+      - min_length: 1s
+        max_length: 5s
+        then:
+          - script.execute: mill_reverse_from_button
+
+script:
+  # Off if the sails turn or any light is on, else on.
+  - id: mill_toggle
+    then:
+      - if:
+          condition:
+            or:
+              - switch.is_on: mill_sails_turn
+              - light.is_on: mill_door_glow
+              - light.is_on: mill_stone_window
+              - light.is_on: mill_bin_window
+              - light.is_on: mill_door_lamp
+          then:
+            - script.execute: mill_off
+            - logger.log:
+                format: "Button: mill off"
+                level: INFO
+                tag: mill.controls
+          else:
+            - script.execute: mill_on
+            - logger.log:
+                format: "Button: mill on"
+                level: INFO
+                tag: mill.controls
+
+  # Reverse the sails while they turn. The Reverse Rotation switch does the
+  # reversal, so HA shows the change and the switch re-arms the sails. While
+  # the sails are stopped, do nothing.
+  - id: mill_reverse_from_button
+    then:
+      - if:
+          condition:
+            switch.is_on: mill_sails_turn
+          then:
+            - switch.toggle: mill_sails_reverse_switch
+            - logger.log:
+                format: "Button: sails reversed"
+                level: INFO
+                tag: mill.controls
+
+  # Stop the sails at once. Each light fades off over its 3 s default and
+  # stops its effect.
+  - id: mill_off
+    then:
+      - script.stop: mill_on
+      - switch.turn_off: mill_sails_turn
+      - light.turn_off: mill_door_glow
+      - light.turn_off: mill_stone_window
+      - light.turn_off: mill_bin_window
+      - light.turn_off: mill_door_lamp
+
+  # Start the sails at the current Sail Speed and fade the lights on to warm
+  # deep amber. A call that sets an effect skips the default fade, so the
+  # lights fade on with no effect, and Lamplight starts after the fade.
+  # The pixels are RGBW: the colour mode and white 0% keep the white channel
+  # dark, and colour brightness 100% overrides a lower value set from HA.
+  # The amber is 255/120/40 at the LED. ESPHome applies gamma 2.8 after these
+  # values, so they are set to the inputs that give that output: 100/76/52 %.
+  - id: mill_on
+    mode: restart
+    then:
+      - switch.turn_on: mill_sails_turn
+      - light.turn_on:
+          id: mill_door_glow
+          color_mode: RGB_WHITE
+          brightness: 100%
+          color_brightness: 100%
+          red: 100%
+          green: 76%
+          blue: 52%
+          white: 0%
+      - light.turn_on:
+          id: mill_stone_window
+          color_mode: RGB_WHITE
+          brightness: 100%
+          color_brightness: 100%
+          red: 100%
+          green: 76%
+          blue: 52%
+          white: 0%
+      - light.turn_on:
+          id: mill_bin_window
+          color_mode: RGB_WHITE
+          brightness: 100%
+          color_brightness: 100%
+          red: 100%
+          green: 76%
+          blue: 52%
+          white: 0%
+      - light.turn_on:
+          id: mill_door_lamp
+          color_mode: RGB_WHITE
+          brightness: 85%
+          color_brightness: 100%
+          red: 100%
+          green: 76%
+          blue: 52%
+          white: 0%
+      - delay: 3s
+      # A light turned off during the fade is still on in light.is_on, which
+      # reads the fading values, so check the target state that HA shows.
+      - if:
+          condition:
+            lambda: "return id(mill_door_glow).remote_values.is_on();"
+          then:
+            - light.turn_on:
+                id: mill_door_glow
+                effect: Lamplight
+      - if:
+          condition:
+            lambda: "return id(mill_stone_window).remote_values.is_on();"
+          then:
+            - light.turn_on:
+                id: mill_stone_window
+                effect: Lamplight
+      - if:
+          condition:
+            lambda: "return id(mill_bin_window).remote_values.is_on();"
+          then:
+            - light.turn_on:
+                id: mill_bin_window
+                effect: Lamplight
