@@ -188,7 +188,7 @@
 - **Consumers:** The reviewer, who copies it to `secrets.yaml`.
 - **Location:** `secrets.example.yaml`
 - **Kind:** Repository file.
-- **Details:** `wifi_ssid`, `wifi_password`, `ap_password` and `ota_password` hold "example-…" values of 8 or more characters. `api_key` holds a valid 44-character base64 key of zero bytes.
+- **Details:** `wifi_ssid`, `wifi_password`, `ap_password` and `ota_password` hold "example-…" values of 8 or more characters. `api_key` holds a valid 44-character base64 placeholder that decodes to "example-api-key-placeholder-only" (ESPHome 2026.9.1 rejects the all-zero key).
 - **Rationale:** FR-36: placeholders only. FR-34: the values pass ESPHome's checks.
 
 #### Tool pins — `requirements.txt`
