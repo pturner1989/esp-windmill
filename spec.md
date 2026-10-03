@@ -13,15 +13,15 @@ That single rule is what makes both your migration paths work later:
 | Path | What changes | What doesn't |
 | --- | --- | --- |
 | Keep the ESP | Plug its USB cable into any 5V USB source, or a 12V-to-USB module if a 12V bus ever exists | Everything inside the mill |
-| Fold it into the main hub | Unplug two connectors in the base box, run 7 wires to the hub | The mill, the drive, the pixels, the mounting |
+| Fold it into the main hub | Lift the mill, unplug the 7-pin connector, run 7 wires to the hub | The mill, the drive, the pixels, the mounting |
 
-So the module is built around an internal split at the base of the mill. Above the split: the mill, sails, motor and pixel string, terminating in a **7-pin JST-XH** carrying four stepper coils, pixel data, 5V and GND. Below the split, in the base box: the ULN2003, the data-level fix (diode drop or level shifter) and the ESP.
+So the module is built around an internal split at the base of the mill. Above the split: the mill, sails, motor and pixel string, terminating in a **7-pin JST-XH** carrying four stepper coils, pixel data, 5V and GND. Below the split, on an electronics plate fixed to the mounting pad inside the mill's ground floor: the ESP and the ULN2003. The mill sits down over the plate and lifts off it, so everything below the split stays serviceable without a base box (decided 2026-10-03).
 
-When the mill joins the main system you either leave the box alone and change what feeds the USB cable, or you pull the ESP and extend that 7-pin connector to the hub. Neither touches anything you glued.
+When the mill joins the main system you either leave the plate alone and change what feeds the USB cable, or you pull the ESP and extend that 7-pin connector to the hub. Neither touches anything you glued.
 
 ### Why USB-C in (decided 2026-10-02)
 
-The original plan was 12V on an XT30 with a buck converter in the box, so the mill could join a 12V bus with a re-plug. That plan is dropped. The mill now takes 5V from a USB charger straight into the C3 SuperMini's USB-C port, and the board's 5V pin feeds the rest of the base box. That removes the XT30, polyfuse, SS34 and buck.
+The original plan was 12V on an XT30 with a buck converter in the box, so the mill could join a 12V bus with a re-plug. That plan is dropped. The mill now takes 5V from a USB charger straight into the C3 SuperMini's USB-C port, and the board's 5V pin feeds the rest of the electronics plate. That removes the XT30, polyfuse, SS34 and buck.
 
 Because USB is the only power source, there is no back-feed risk. To flash over USB, unplug the charger and plug in the laptop. Normal updates go over the network.
 
@@ -29,7 +29,7 @@ What this costs, and how to manage it:
 
 - **All current goes through the C3 board** (about 450mA with the brightness cap). That is within what the board and its USB-C socket carry, but do not add loads beyond this module.
 - **Stepper noise sits on the C3's own supply.** The 470uF at the ULN2003 is required, not optional.
-- **The cable pulls on a small socket.** Clamp the cable to the base box (cable tie to an anchor, or a P-clip) so a tug never reaches the board.
+- **The cable pulls on a small socket.** Clamp the cable to the electronics plate (cable tie to an anchor, or a P-clip) so a tug never reaches the board.
 - **Charger:** 5V, 2A recommended (1A minimum). If a USB-C to USB-C cable gives no power, the board lacks the CC resistors; use a USB-A to USB-C cable.
 - **The 5V pin may sit around 4.7V** if the board has a diode after the USB socket. Everything in this module works at that voltage.
 
@@ -51,13 +51,12 @@ From the kit listing: 305mm high excluding sails, 355mm sail span.
 
 | Item | mm |
 | --- | --- |
-| Base box | 58 |
-| Ply lid, datum | 12 |
+| Baseboard, datum | 12 |
 | Mill to sail tip | 455 |
 | Air above sails | 12 |
-| **Total above sill** | **537** |
+| **Total above sill** | **479** |
 
-**Measure your clear glass height before cutting anything.** If it's under about 540mm the kit won't stand as designed and you'd be looking at shortening the tower, which on a matchstick kit means re-spacing formers and is best decided before you start rather than after.
+**Measure your clear glass height before cutting anything.** If it's under about 480mm the kit won't stand as designed and you'd be looking at shortening the tower, which on a matchstick kit means re-spacing formers and is best decided before you start rather than after.
 
 ### Swept circle
 
@@ -77,7 +76,7 @@ The pre-cut card formers stack inside the tower. Before assembly, drill or cut a
 
 ### 2. Reinforce the base
 
-Cut a disc of 4mm ply to match the bottom former and glue it underneath. This is what the mounting bolts go through, and what stops a 455mm structure pivoting on card.
+Cut a **ring** of 4mm ply to match the bottom former and glue it underneath. Leave the centre open: the electronics plate sits inside it when the mill is down. The ring is what the mounting fixes go into, and what stops a 455mm structure pivoting on card. Cut a notch in the back of the ring, open at the bottom, for the USB cable, so the mill lifts straight up off the cable.
 
 ### 3. Make the cap removable
 
@@ -102,7 +101,7 @@ Paint the whole tower interior matt black before the formers go in, then white i
 
 ## Mechanical drive
 
-Motor in the cap, driving the sail shaft directly. The alternative, a shaft down the tower to a motor in the box, needs a right-angle drive at the top and is harder to build and harder to service.
+Motor in the cap, driving the sail shaft directly. The alternative, a shaft down the tower to a motor in the base, needs a right-angle drive at the top and is harder to build and harder to service.
 
 ### The stack, front to back
 
@@ -204,7 +203,7 @@ An ESP32-C3 SuperMini is the right board here: 22 x 18mm, about £3, plenty of G
 | Stage | Part | Output |
 | --- | --- | --- |
 | Input | USB-C on the C3 SuperMini, from a 5V USB charger | 2A charger recommended |
-| Distribution | C3 5V pin to the base box 5V rail | About 4.7-5.0V depending on the board |
+| Distribution | C3 5V pin to the electronics plate 5V rail | About 4.7-5.0V depending on the board |
 | Bulk | 470uF across 5V at the ULN2003 | Absorbs stepper switching |
 | Pixel | 1000uF across 5V at the string entry |  |
 
@@ -221,15 +220,20 @@ Two fixes, either acceptable:
 
 Use the shifter if you're building the board anyway. Either way, put a 330R resistor in series with the data line at the string end.
 
-### Layout in the base box
+### Layout in the ground floor
 
-Keep the ULN2003 apart from the ESP, with the ESP's antenna end facing the room rather than buried behind metal. The C3 SuperMini's antenna is its weak point and a 500mm steel-ballasted box is not a friendly place for it. If WiFi is marginal, that's the first thing to move.
+The C3, the ULN2003 and the 7-pin board header sit on a small ply electronics plate fixed to the mounting pad, inside the mill's footprint. The mill's ground floor is open underneath and comes down over it.
+
+- **Electronics bay.** Build a light-tight black card bay around the plate at the back of the ground floor, with its own ceiling. It must hide the electronics from the doorway as well as from above, because the door glow (pixel 0) and the door lamp (pixel 3) sit right there. Measure the base former and the door height before sizing the plate; keep the electronics under about 30mm tall.
+- **Light sources.** Desolder the ULN2003 board's four step LEDs; they flash with every step. Paint over the C3's red power LED and blue LED with black paint.
+- **Heat.** The ULN2003 dissipates about 0.3-0.4W the whole time it holds the sails. Leave a vent gap low in the bay so warm air can leave.
+- **Antenna.** Keep the ULN2003 apart from the ESP, and the ESP's antenna end (opposite the USB-C socket) up and away from any steel ballast. If WiFi is marginal, that's the first thing to move.
 
 ## Wiring diagram
 
 ```mermaid
 flowchart TD
-  PSU[5V USB charger] -->|USB-C, cable clamped to box| ESP[ESP32-C3 SuperMini]
+  PSU[5V USB charger] -->|USB-C, cable clamped to plate| ESP[ESP32-C3 SuperMini]
 
   ESP -->|5V pin| RAIL[5V rail]
   RAIL --> ULN[ULN2003 driver<br/>+ 470uF]
@@ -249,7 +253,7 @@ flowchart TD
   MOT --> SHAFT[Coupler, 4mm shaft,<br/>684ZZ bearing, sail hub]
 ```
 
-Everything above the JST-XH is inside the mill and gets glued in. Everything below it is in the base box and stays serviceable. That connector is the boundary the whole module is designed around, so make it a proper crimped JST-XH with a latch rather than a header strip.
+Everything above the JST-XH is inside the mill and gets glued in. Everything below it is on the electronics plate and stays serviceable when the mill lifts off. That connector is the boundary the whole module is designed around, so make it a proper crimped JST-XH with a latch rather than a header strip.
 
 ## ESPHome configuration
 
@@ -465,31 +469,34 @@ script:
 
 | Layer | Part |
 | --- | --- |
-| Mill | Base former + 4mm ply disc glued under it |
+| Mill | Base former + 4mm ply ring glued under it, open in the centre |
+| Electronics | Ply plate with the C3, ULN2003 and 7-pin header, fixed to the pad inside the ring |
 | Landscape | Papier-mâché, with a let-in ply pad flush to the surface |
 | Pad | 6mm ply or hardwood disc, 130mm, bedded on the baseboard |
-| Baseboard | 12mm ply lid |
-| Box | 58mm frame, cross-brace directly under the pad |
+| Baseboard | 12mm ply |
 
-Three M4 bolts on a 90mm circle, up through the ply lid into threaded inserts in the mill's base disc. Bolt heads accessible from inside the box.
+There is no base box (decided 2026-10-03), so nothing can be reached from underneath without lifting the board. **Decide the fixing before building the ring:**
+
+- **Bolts from below.** Three M4 bolts on a 90mm circle, up through the baseboard and pad into threaded inserts in the ring. The most secure against a knock, but releasing the mill means lifting the board off the sill.
+- **Dowels and magnets.** Three locating dowels in the pad and two or three strong neodymium magnets in the ring and pad. The mill lifts straight off, but a hard knock could unseat it.
 
 **The mâché must not be structural.** Let the ply pad in flush before the landform goes on, and mâché up to it. If the mill bolts to paper it will loosen.
 
 ### Ballast
 
-A 2kg steel plate in the bottom of the box directly under the mill. Cheap, invisible, and it changes the board from something that tips to something that doesn't. Worth doing before you find out the other way.
+A 2kg steel plate directly under the mill changes the board from something that tips to something that doesn't. With no base box it has to go under the baseboard (in a recess, or with the board raised on feet). **Undecided.** Wherever it goes, keep it at least 20mm from the C3's antenna.
 
 ### Cable route
 
-A 20mm brass or plastic tube through the ply pad and the ply lid, standing 2mm proud of the finished landscape, inside the mill's footprint. The 7-pin JST-XH lives in the box below it. Fit the tube before any mâché — a hole covered by papier-mâché is a hole you will never find again.
+Only the USB cable leaves the mill. It runs from the C3 on the electronics plate, out through the notch at the back of the base ring, and away behind scenery to the charger. Plan the scenery channel before any mâché so the cable can be lifted out and replaced. The 7-pin JST-XH stays inside the ground floor, on the plate.
 
 ### Access
 
-The mill lifts off by removing three bolts from inside the box and unplugging one connector. Nothing else is attached. Keep it that way: don't glue the mill's base into the landscape, and leave a 1mm shadow gap around it filled with snow or loose ground cover rather than adhesive.
+The mill lifts off by releasing its fixing and lifting it straight up, which exposes the electronics plate; then unplug the 7-pin connector. Nothing else is attached. Keep it that way: don't glue the mill's base into the landscape, and leave a 1mm shadow gap around it filled with snow or loose ground cover rather than adhesive.
 
 ### Standing it before the board exists
 
-For the bench phase, make a temporary base: an offcut of 18mm ply, 300 x 200mm, with the same three-bolt pattern and a hole for the cable. Sits on the workbench, takes the same wiring, lets you run the mill for hours while the rest of the project doesn't exist yet.
+For the bench phase, make a temporary base: an offcut of 18mm ply, 300 x 200mm, with the same fixing pattern and an electronics plate in the centre. Sits on the workbench, takes the same wiring, lets you run the mill for hours while the rest of the project doesn't exist yet.
 
 ## Build and test order
 
@@ -517,7 +524,8 @@ If pixel flicker appears only when the stepper runs, that's the data line pickin
 
 - [ ] Open all formers, 12mm passages, staggered
 - [ ] Paint interiors black, white bands at pixel positions
-- [ ] Ply disc under the base former, threaded inserts fitted
+- [ ] Ply ring under the base former, with the USB cable notch and the chosen fixing (inserts or magnets)
+- [ ] Electronics plate and light-tight bay built and test-fitted inside the ground floor
 - [ ] Build the tower, feeding the pixel string and motor cable as you go
 - [ ] Build the cap as a removable sub-assembly with the motor in it
 - [ ] Cut the cap vents
@@ -525,7 +533,7 @@ If pixel flicker appears only when the stepper runs, that's the data line pickin
 
 ### Phase 4, integration
 
-- [ ] Temporary ply base, mill bolted down, JST-XH connected
+- [ ] Temporary ply base with the electronics plate, mill fixed down over it, JST-XH connected
 - [ ] Full run: sails turning, all four pixels, for three hours
 - [ ] Check cap temperature by hand after the run
 - [ ] Check sail balance by eye at three different speeds
@@ -543,13 +551,13 @@ The windmill stays a separate node in Home Assistant, appearing as its own devic
 
 ### Option B, fold into the main hub
 
-Inside the base box:
+Lift the mill off its electronics plate:
 
-1. Unplug the 7-pin JST-XH from the module board.
+1. Unplug the 7-pin JST-XH from the plate.
 2. Extend those seven conductors to the nearest junction box on a single cable.
 3. At the hub, the four coil wires go to a spare ULN2003, the data line to a spare RMT channel, 5V and GND to the bus.
 4. Move the stepper and light blocks from this config into the hub's config, renaming ids to avoid collisions.
-5. Remove the C3 and the data-level fix from the box, or leave them in place unpowered. The hub then supplies 5V to the 7-pin connector.
+5. Remove the C3 and the ULN2003 from the plate, or leave them in place unpowered. The hub then supplies 5V to the 7-pin connector.
 
 The one thing to watch: stepper coil signals over a run of a metre or more are more susceptible to noise than you'd expect. Use twisted pairs and keep the run away from pixel data. If the sails start stuttering after the move, that's why.
 
@@ -578,7 +586,7 @@ Approximate UK prices from memory, so budget rather than quote. Around £55 all 
 | 4 | SK6812 12mm bullet pixels, 100mm pitch | 4 |
 | 1 | 684ZZ bearing, 4 x 9 x 4mm | 3 |
 | 1 | Shaft coupler, 5mm to 4mm | 3 |
-| 1 | 4mm brass tube, 300mm | 3 |
+| 1 | 4mm brass tube, 300mm (sail shaft) | 3 |
 | 1 | JST-XH 7-pin kit with crimps | 4 |
 | 1 | 2kg steel ballast plate | 6 |
 | 1 | 5V 2A USB charger and USB-A to USB-C cable | 6 |
@@ -593,13 +601,13 @@ Approximate UK prices from memory, so budget rather than quote. Around £55 all 
 
 ### Not on this list
 
-Junction boxes and the base box itself are part of the main build rather than this module.
+Junction boxes are part of the main build rather than this module.
 
 ## Open questions
 
 ### Measure before you buy anything
 
-- **Clear glass height above the bottom frame.** The mill needs about 537mm from the sill including the box. This is the one that can stop the whole design.
+- **Clear glass height above the bottom frame.** The mill needs about 479mm from the sill. This is the one that can stop the whole design.
 - **Cap interior width.** Decides whether the 28BYJ-48 fits or whether you need an N20 gearmotor with a worm reduction instead.
 - **Base former diameter.** Over 120mm and the board cross-section needs revisiting.
 - **Whether the kit's sails are separate stocks or a single moulded assembly.** Changes how the replacement hub is made.
@@ -618,6 +626,8 @@ Junction boxes and the base box itself are part of the main build rather than th
 | Sail wobble from imbalance | High | Balance on a pin before fitting |
 | Pixel flicker when stepper runs | Medium | Separation, 330R, test in phase 1 |
 | Cap runs warm over a season | Medium | Vents, scheduled hours, not unattended |
-| C3 WiFi weak in the box | Low | Reposition, or swap to a full ESP32 |
-| USB cable tug damages the C3 socket | Medium | Clamp the cable to the base box |
+| C3 WiFi weak inside the ground floor | Low | Antenna up and away from ballast, or swap to a full ESP32 |
+| USB cable tug damages the C3 socket | Medium | Clamp the cable to the electronics plate |
+| Light from the electronics shows through the door | Medium | Light-tight bay; desolder ULN2003 LEDs; paint over C3 LEDs |
+| Electronics bay runs warm | Medium | Vent gap low in the bay; check by hand after the Phase 4 run |
 | C3 resets when the stepper starts | Low | 470uF at the ULN2003; 2A charger, not a laptop port |
