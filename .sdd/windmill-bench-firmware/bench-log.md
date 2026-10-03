@@ -31,6 +31,13 @@ Hardware: ESP32-C3 SuperMini on laptop USB; ULN2003 and 28BYJ-48 on the breadboa
 | AC-6 | 240 survives a power cut | Pending | | |
 | AC-7 | Change while stopped does not move the sails | Pending | | |
 
+## Task 5: four capped lights
+
+| AC | Check | Result | Date | Notes |
+|---|---|---|---|---|
+| AC-3 | Each light lights only its own pixel, correct colours, fades | Fail, fixed | 2026-10-03 | Lights hit the wrong pixels with wrong colours (Stone Floor Window → pixel 0 white + pixel 1 green; Bin Floor Window → pixel 1 white + pixel 2 green; Door Lamp → pixel 2 pink; pixel 3 never lit). Diagnosis: the pixels are SK6812 RGBW (4 bytes each, GRBW order) and were driven as RGB. Fix: GRBW order and a four-channel 60% cap. Re-test pending. |
+
 ## Observations
 
+- 2026-10-03: the pixels are SK6812 **RGBW**, which settles the spec's open question. The brightness-cap current limit in Task 5 AC-4 must be recomputed from the RGBW datasheet (the white LED adds current).
 - 2026-10-03: this laptop sees no mDNS or zeroconf services on the LAN, so the device is reached by IP (`--device 192.168.1.7`). HA at 192.168.1.41 failed handshakes until the old web-installer device is removed and Windmill is re-added with the new key.

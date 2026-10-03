@@ -153,12 +153,14 @@ Four SK6812 bullet pixels on a single data line. A 12mm bullet string at 100mm p
 
 | # | Position | Height | Purpose |
 | --- | --- | --- | --- |
-| 0 | Ground floor, mill door | \~40mm | Warm glow at the doorway, strongest from both lanes |
-| 1 | Stone floor window | \~140mm | Mid-tower, the one most visible at distance |
-| 2 | Bin floor window | \~240mm | High, reads against the sky |
-| 3 | External lamp at the door | \~55mm | Mounted outside on a bracket, lights the threshold |
+| 0 | External lamp at the door | \~55mm | Mounted outside on a bracket, lights the threshold |
+| 1 | Ground floor, mill door | \~40mm | Warm glow at the doorway, strongest from both lanes |
+| 2 | Stone floor window | \~140mm | Mid-tower, the one most visible at distance |
+| 3 | Bin floor window | \~240mm | High, reads against the sky |
 
-Pixel 3 is the one that earns its place. A single exterior lamp casting onto the ground gives the mill a sense of being occupied, and it's the only light that works when the tower windows are dark.
+The string runs lamp first, then up the tower, which keeps the wiring short (order changed 2026-10-03). The pixels are SK6812 **RGBW** (GRBW byte order), found at the bench.
+
+The door lamp (pixel 0) is the one that earns its place. A single exterior lamp casting onto the ground gives the mill a sense of being occupied, and it's the only light that works when the tower windows are dark.
 
 ### Light-tightness
 

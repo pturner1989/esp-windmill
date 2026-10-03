@@ -1,6 +1,6 @@
 # Specification: Windmill Bench Firmware
 
-**Version:** 1.6
+**Version:** 1.7
 **Date:** 2026-10-02
 **Status:** Approved
 **Author:** Pete Turner (with Claude)
@@ -94,7 +94,7 @@ In every statement, "the system" means the windmill firmware running on the ESP3
 ### Lights
 
 **FR-10: Four individual lights**
-- **Statement:** The system shall offer four HA lights, "Mill Door Glow" (pixel 0, ground floor door), "Mill Stone Floor Window" (pixel 1), "Mill Bin Floor Window" (pixel 2) and "Mill Door Lamp" (pixel 3, outside), each of which changes the state, colour and brightness of its own pixel only and shows red, green and blue on that pixel as HA requests them.
+- **Statement:** The system shall offer four HA lights, "Mill Door Lamp" (pixel 0, outside), "Mill Door Glow" (pixel 1, ground floor door), "Mill Stone Floor Window" (pixel 2) and "Mill Bin Floor Window" (pixel 3), each of which changes the state, colour and brightness of its own pixel only and shows red, green and blue on that pixel as HA requests them.
 
 **FR-11: Independent lamplight on the interior pixels**
 - **Statement:** The system shall offer a Lamplight flicker effect on each of the three interior lights that flickers each pixel independently of the other pixels.
@@ -195,7 +195,7 @@ In every statement, "the system" means the windmill firmware running on the ESP3
 - **Statement:** The system shall hold a `spec.md` in which a pointer to the firmware files in the repository replaces the firmware configuration listing, and every statement about the firmware that this feature changes matches the firmware files.
 
 **FR-39: HA group instructions**
-- **Statement:** The system shall include a short note in the repository that tells the operator how to create the HA light groups "Mill Interior" (pixels 0–2) and "Mill Lights" (all four pixels).
+- **Statement:** The system shall include a short note in the repository that tells the operator how to create the HA light groups "Mill Interior" (pixels 1–3) and "Mill Lights" (all four pixels).
 
 ---
 
@@ -355,7 +355,7 @@ In every statement, "the system" means the windmill firmware running on the ESP3
 **AT-28: HA light groups** (FR-39)
 - **Given:** The four lights show in HA and the repository note on light groups exists.
 - **When:** The operator follows the note to create "Mill Interior" and "Mill Lights" in HA, turns on "Mill Interior", then turns off "Mill Lights".
-- **Then:** "Mill Interior" turns on pixels 0, 1 and 2 only; "Mill Lights" turns off all four pixels.
+- **Then:** "Mill Interior" turns on pixels 1, 2 and 3 only; "Mill Lights" turns off all four pixels.
 
 **AT-29: One-hour run with motor and pixels together** (FR-14; Phase 1 "run together for an hour")
 - **Given:** The 470 µF capacitor at the stepper driver is fitted. A capacitor of at least 100 µF is fitted at the pixel string entry only if an earlier run of this test showed flicker. The sails turn at 170 steps/s and all four lights are on steady colours with no effect. The operator may watch the pixels directly or make one continuous video recording of them for the whole hour.
@@ -366,7 +366,7 @@ In every statement, "the system" means the windmill firmware running on the ESP3
 
 ## Open Questions
 
-- Are the bullet pixels RGB or RGBW SK6812 parts? This affects whether colours show correctly. It also changes the full-white current. AT-11 takes its limit from the datasheet full-white current of the parts in use. The 150 mA figure in AT-11 holds only for RGB pixels: `spec.md` gives about 60 mA per pixel at full white, so 240 mA for four, and 60% of that is 144 mA. If the pixels prove to be RGBW, the limit must be recalculated from their datasheet. The bench answers this.
+- **Answered at the bench, 2026-10-03:** the pixels are SK6812 RGBW, in GRBW byte order. AT-11's limit must use the RGBW datasheet's full-white current, which includes the white LED. (Original question: Are the bullet pixels RGB or RGBW SK6812 parts? This affects whether colours show correctly. It also changes the full-white current. AT-11 takes its limit from the datasheet full-white current of the parts in use. The 150 mA figure in AT-11 holds only for RGB pixels: `spec.md` gives about 60 mA per pixel at full white, so 240 mA for four, and 60% of that is 144 mA. If the pixels prove to be RGBW, the limit must be recalculated from their datasheet. The bench answers this.)
 - Will Phase 4 tuning by eye want a default Sail Speed other than 170 steps/s? This does not block this feature.
 - Design must make sure the sails never stop by themselves after long cumulative running. The `spec.md` approach uses a fixed far target that the motor reaches after about 136 days at 170 steps/s.
 
@@ -407,3 +407,4 @@ In every statement, "the system" means the windmill firmware running on the ESP3
 | 1.4 | 2026-10-02 | Pete Turner (with Claude) | Power changed to USB-C into the C3 (spec.md updated); AT-07, AT-17, AT-19, AT-20, AT-21 and the out-of-scope voltage check reworded |
 | 1.5 | 2026-10-02 | Pete Turner (with Claude) | FR-41 excludes HA turn-ons that request an effect (the platform starts an effect without a fade); accepted by the user during design |
 | 1.6 | 2026-10-03 | Pete Turner (with Claude) | Pins changed so GPIO2 (boot-strapping) is unconnected: stepper on GPIO0, 1, 3, 4, pixel data on GPIO6 (NFR-02); AT-29 no longer requires the pixel-entry capacitor unless a run shows flicker |
+| 1.7 | 2026-10-03 | Pete Turner (with Claude) | Pixel order changed for wiring (0 door lamp, 1 door glow, 2 stone floor window, 3 bin floor window); pixels found to be RGBW at the bench |
