@@ -5,7 +5,7 @@
 
 ### Task 1: A Disco effect on each light, at a fixed tempo
 
-- **Status:** Done (agent checks); device ACs pending user
+- **Status:** Done
 - **Blocked by:** None
 
 **What to build:**
@@ -60,7 +60,7 @@ AC-1 to AC-5 and AC-8 are agent-checkable; AC-6 and AC-7 need the operator after
 
 ### Task 2: Firing order per bar and colours per phrase
 
-- **Status:** Backlog
+- **Status:** Done (agent checks); device ACs pending user
 - **Blocked by:** Task 1
 
 **What to build:**

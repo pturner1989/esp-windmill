@@ -6,6 +6,7 @@
 // int32_t(a - b), so it stays correct when the counter wraps.
 #pragma once
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstdint>
@@ -49,6 +50,21 @@ struct Frame {
   Rgbw out;
 };
 
+// A firing order: the slot that starts at each quarter of a step.
+using Order = std::array<uint8_t, 4>;
+
+// The firing order of `bar` (4 beats). The 24 orders are in Steinhaus-Johnson-
+// Trotter order, so each bar differs from the bar before by one swap of two
+// neighbours, also from the last entry back to the first.
+inline Order bar_order(int64_t bar) {
+  static constexpr Order kOrders[24] = {
+      {0, 1, 2, 3}, {0, 1, 3, 2}, {0, 3, 1, 2}, {3, 0, 1, 2}, {3, 0, 2, 1}, {0, 3, 2, 1},
+      {0, 2, 3, 1}, {0, 2, 1, 3}, {2, 0, 1, 3}, {2, 0, 3, 1}, {2, 3, 0, 1}, {3, 2, 0, 1},
+      {3, 2, 1, 0}, {2, 3, 1, 0}, {2, 1, 3, 0}, {2, 1, 0, 3}, {1, 2, 0, 3}, {1, 2, 3, 0},
+      {1, 3, 2, 0}, {3, 1, 2, 0}, {3, 1, 0, 2}, {1, 3, 0, 2}, {1, 0, 3, 2}, {1, 0, 2, 3}};
+  return kOrders[(bar % 24 + 24) % 24];
+}
+
 inline int32_t since(uint32_t a, uint32_t b) { return int32_t(a - b); }
 
 inline double beats_at(const Clock &c, uint32_t t) {
@@ -57,12 +73,18 @@ inline double beats_at(const Clock &c, uint32_t t) {
 
 inline double step_ms(const Clock &c) { return 60000.0 / (double(c.bpm) * c.rate); }
 
+// The scheduled start of `slot` in step `step`, in steps: the step plus the
+// slot's quarter in the firing order of the bar that holds the step.
+inline double start_in(const Clock &c, double step, int slot) {
+  Order o = bar_order(int64_t(std::floor(step / (4 * c.rate))));
+  return step + (std::find(o.begin(), o.end(), slot) - o.begin()) / 4.0;
+}
+
 // The nominal time of the latest scheduled start of `slot` at or before `now`.
-// The firing order is fixed: slot s starts a quarter step after slot s - 1.
 inline uint32_t latest_start(const Clock &c, int slot, uint32_t now) {
   double steps = beats_at(c, now) * c.rate;
-  double start = std::floor(steps) + slot / 4.0;
-  if (start > steps) start -= 1;
+  double start = start_in(c, std::floor(steps), slot);
+  if (start > steps) start = start_in(c, std::floor(steps) - 1, slot);
   double offset_ms = (start / c.rate - c.anchor_beat) * 60000.0 / c.bpm;
   return c.anchor_ms + uint32_t(int32_t(std::lround(offset_ms)));
 }
@@ -75,10 +97,14 @@ inline float envelope(float phase) { return 0.15f + 0.85f * std::exp(-5.0f * pha
 // the partition applies gamma.
 inline uint8_t level(float fraction) { return uint8_t(std::lround(255.0f * std::pow(fraction, 1.0f / kGamma))); }
 
-// Hue 20 + 90 * slot degrees, HSL saturation 100% and lightness 55%, so the
-// brightest channel is 255.
-inline Rgb slot_colour(int slot) {
-  float h = (20 + 90 * slot) % 360 / 60.0f;
+// The phrase (16 beats) that contains `beats`, floored for negative beats.
+inline int64_t phrase_of(double beats) { return int64_t(std::floor(beats / 16)); }
+
+// Hue (phrase * 137 + 20 + slot * 90) mod 360 degrees, HSL saturation 100% and
+// lightness 55%, so the four slots are 90 degrees apart and the brightest
+// channel is 255.
+inline Rgb phrase_colour(int64_t phrase, int slot) {
+  float h = float(((phrase * 137 + 20 + slot * 90) % 360 + 360) % 360) / 60.0f;
   float x = 0.9f * (1 - std::fabs(std::fmod(h, 2.0f) - 1));
   float rgb[6][3] = {{0.9f, x, 0}, {x, 0.9f, 0}, {0, 0.9f, x}, {0, x, 0.9f}, {x, 0, 0.9f}, {0.9f, 0, x}};
   const float *v = rgb[int(h)];
@@ -97,7 +123,7 @@ inline Frame frame(const Disco &d, int slot, uint32_t now) {
   if (since(start, s.flash_ms) >= kGapMs && since(now, start) <= kLateMs) s.flash_ms = start;
   float phase = float(std::fmax(0.0, since(now, s.flash_ms) / step_ms(d.clock)));
   uint8_t by = level(envelope(phase));
-  Rgb c = slot_colour(slot);
+  Rgb c = phrase_colour(phrase_of(beats_at(d.clock, now)), slot);
   return {s, {scale(c.r, by), scale(c.g, by), scale(c.b, by), 0}};
 }
 

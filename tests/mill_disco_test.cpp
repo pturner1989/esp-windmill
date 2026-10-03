@@ -6,6 +6,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <set>
 #include <vector>
 
 using namespace mill_disco;
@@ -69,6 +70,13 @@ int count_in(const std::vector<Start> &starts, int slot, uint32_t from, uint32_t
   }));
 }
 
+double hue_of(Rgb c) {
+  double r = c.r / 255.0, g = c.g / 255.0, b = c.b / 255.0;
+  double hi = std::max({r, g, b}), lo = std::min({r, g, b}), span = hi - lo;
+  double h = hi == r ? std::fmod((g - b) / span, 6.0) : hi == g ? (b - r) / span + 2 : (r - g) / span + 4;
+  return std::fmod(h * 60 + 360, 360);
+}
+
 void test_chase_at_120_bpm() {
   std::vector<Start> starts = simulate(anchored_at(0), 0, 60000);
   // At 120 BPM and 1x a step is 500 ms and a quarter step 125 ms.
@@ -87,6 +95,37 @@ void test_chase_at_120_bpm() {
       previous = &s;
     }
   }
+  // A bar is 2000 ms. The four starts of its first step show its firing order.
+  std::vector<Order> orders;
+  for (uint32_t bar = 0; bar < 30; bar++) {
+    Order o{};
+    int n = 0;
+    for (const Start &s : starts) {
+      if (s.at >= bar * 2000 && s.at < bar * 2000 + 500 && n < 4) o[n++] = uint8_t(s.slot);
+    }
+    orders.push_back(o);
+  }
+  for (size_t first = 0; first + 8 <= orders.size(); first++) {
+    CHECK(std::set<Order>(orders.begin() + first, orders.begin() + first + 8).size() == 8);
+  }
+}
+
+// At 120 BPM a phrase is 8000 ms. Each slot keeps one hue for a whole phrase
+// and changes it at the first frame of the next phrase.
+void test_colour_changes_only_at_phrase_start() {
+  Disco d = anchored_at(0);
+  double hue[4] = {};
+  for (uint32_t now = 0; now <= 60000; now += kFrameMs) {
+    bool phrase_start = now % 8000 < kFrameMs;
+    for (int slot = 0; slot < 4; slot++) {
+      Frame f = frame(d, slot, now);
+      d.slots[slot] = f.slot;
+      double h = hue_of({f.out.r, f.out.g, f.out.b});
+      double change = std::fabs(std::remainder(h - hue[slot], 360.0));
+      if (now > 0) CHECK(phrase_start ? change > 45 : change < 5);
+      hue[slot] = h;
+    }
+  }
 }
 
 void test_late_frame_skips_old_starts() {
@@ -97,10 +136,35 @@ void test_late_frame_skips_old_starts() {
   for (const Start &s : starts) CHECK(int32_t(s.frame - s.at) <= 60);
   const uint32_t late_frame = late_at + 200;
   for (int slot = 0; slot < 4; slot++) {
-    // The slot's first scheduled start after the late frame: 500 ms steps, slot s at quarter s.
-    uint32_t next = slot * 125;
-    while (next <= late_frame) next += 500;
+    // The slot's first scheduled start after the late frame: 500 ms steps, 4 steps
+    // a bar, and the slot at its quarter in the bar's firing order.
+    uint32_t next = 0;
+    for (uint32_t step = 0; next <= late_frame; step++) {
+      Order o = bar_order(step / 4);
+      next = step * 500 + 125 * uint32_t(std::find(o.begin(), o.end(), slot) - o.begin());
+    }
     CHECK(count_in(starts, slot, next, next + 1) == 1);
+  }
+}
+
+// True if `b` is `a` with two neighbouring positions swapped.
+bool one_neighbour_swap(const Order &a, const Order &b) {
+  for (int i = 0; i < 3; i++) {
+    Order swapped = a;
+    std::swap(swapped[i], swapped[i + 1]);
+    if (swapped == b) return true;
+  }
+  return false;
+}
+
+void test_bar_orders() {
+  for (int64_t bar = -30; bar <= 30; bar++) {
+    Order o = bar_order(bar);
+    Order sorted = o;
+    std::sort(sorted.begin(), sorted.end());
+    CHECK((sorted == Order{0, 1, 2, 3}));
+    CHECK(one_neighbour_swap(bar_order(bar - 1), o));
+    CHECK(bar_order(bar + 24) == o);  // floored modulo: bar -1 reads the last entry
   }
 }
 
@@ -116,20 +180,23 @@ void test_level_undoes_gamma() {
   }
 }
 
-double hue_of(Rgb c) {
-  double r = c.r / 255.0, g = c.g / 255.0, b = c.b / 255.0;
-  double hi = std::max({r, g, b}), lo = std::min({r, g, b}), span = hi - lo;
-  double h = hi == r ? std::fmod((g - b) / span, 6.0) : hi == g ? (b - r) / span + 2 : (r - g) / span + 4;
-  return std::fmod(h * 60 + 360, 360);
-}
+bool same(Rgb a, Rgb b) { return a.r == b.r && a.g == b.g && a.b == b.b; }
 
-void test_slot_colours() {
-  for (int slot = 0; slot < 4; slot++) {
-    Rgb c = slot_colour(slot);
-    CHECK(std::max({c.r, c.g, c.b}) == 255);
-    double gap = std::fmod(hue_of(slot_colour((slot + 1) % 4)) - hue_of(c) + 360, 360);
-    CHECK_NEAR(gap, 90, 1);
+void test_phrase_colours() {
+  for (int64_t phrase = -2; phrase <= 10; phrase++) {
+    for (int slot = 0; slot < 4; slot++) {
+      Rgb c = phrase_colour(phrase, slot);
+      CHECK(std::max({c.r, c.g, c.b}) == 255);
+      double gap = std::fmod(hue_of(phrase_colour(phrase, (slot + 1) % 4)) - hue_of(c) + 360, 360);
+      CHECK_NEAR(gap, 90, 1);
+      CHECK(!same(c, phrase_colour(phrase - 1, slot)));
+    }
   }
+  CHECK(phrase_of(0) == 0);
+  CHECK(phrase_of(15.99) == 0);
+  CHECK(phrase_of(-0.01) == -1);
+  CHECK(phrase_of(-16) == -1);
+  CHECK(phrase_of(-16.01) == -2);
 }
 
 void test_clock_across_millis_wrap() {
@@ -146,10 +213,12 @@ void test_clock_across_millis_wrap() {
 
 int main() {
   test_chase_at_120_bpm();
+  test_colour_changes_only_at_phrase_start();
   test_late_frame_skips_old_starts();
+  test_bar_orders();
   test_envelope();
   test_level_undoes_gamma();
-  test_slot_colours();
+  test_phrase_colours();
   test_clock_across_millis_wrap();
   if (failures > 0) {
     std::printf("mill_disco_test: %d checks failed\n", failures);
