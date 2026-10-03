@@ -270,7 +270,7 @@ AC-1 is agent-checkable; AC-2 and AC-3 need the operator with the pixels wired. 
 
 ### Task 7: Button turns the whole mill on and off
 
-- **Status:** Backlog
+- **Status:** In Progress (operator checks AC-3 to AC-8 pending)
 - **Blocked by:** Task 4, Task 6
 
 **What to build:**

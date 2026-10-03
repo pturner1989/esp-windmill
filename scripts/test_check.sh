@@ -396,7 +396,7 @@ YAML
   fi
   found=$(long_lambdas "$repo"/packages/*.yaml)
   if [[ -z $found ]]; then
-    pass "no lambda in a package is longer than two lines"
+    pass "no lambda in a package is longer than two lines ($(cd "$repo/packages" && echo *.yaml))"
   else
     fail "no lambda in a package is longer than two lines" "found: $found"
   fi
@@ -670,6 +670,223 @@ test_lamplight_effects() {
   fi
 }
 
+# action_calls FILE... prints one line for each action or condition in FILE,
+# or in standard input when FILE is "-":
+# owner<TAB>path<TAB>key<TAB>arguments.
+# The owner is the top-level key and the id of its list entry, for example
+# script/mill_toggle. The path is the chain of keys from that entry down to
+# the call, for example then/if/condition/or. A call is a key with a dot in it
+# (light.turn_on) or a delay or lambda key. A plain value prints as it is; a
+# mapping prints its plain values as key=value pairs joined by ";". Comments
+# are not read.
+action_calls() {
+  # The script comes from -c, so that standard input stays free for "-".
+  python3 -c "$(cat << 'PY'
+import sys
+
+import yaml
+
+
+def scalar(node):
+    return isinstance(node, yaml.ScalarNode)
+
+
+def arguments(node):
+    if scalar(node):
+        return node.value.strip().splitlines()[0] if node.value.strip() else ""
+    if isinstance(node, yaml.MappingNode):
+        return ";".join(f"{k.value}={v.value}" for k, v in node.value if scalar(v))
+    return ""
+
+
+def walk(node, owner, path, out):
+    if isinstance(node, yaml.MappingNode):
+        for k, v in node.value:
+            key = str(k.value)
+            if "." in key or key in ("delay", "lambda"):
+                out.append(f"{owner}\t{'/'.join(path)}\t{key}\t{arguments(v)}")
+            walk(v, owner, path + [key], out)
+    elif isinstance(node, yaml.SequenceNode):
+        for v in node.value:
+            walk(v, owner, path, out)
+
+
+for path in sys.argv[1:]:
+    text = sys.stdin.read() if path == "-" else open(path).read()
+    out = []
+    root = yaml.compose(text, Loader=yaml.SafeLoader)
+    for k, v in root.value if isinstance(root, yaml.MappingNode) else []:
+        entries = v.value if isinstance(v, yaml.SequenceNode) else [v]
+        for entry in entries:
+            owner = k.value
+            if isinstance(entry, yaml.MappingNode):
+                ids = [i.value for n, i in entry.value if n.value == "id" and scalar(i)]
+                owner += "/" + (ids[0] if ids else "-")
+                walk(entry, owner, [], out)
+    print("\n".join(out))
+PY
+)" "$@"
+}
+
+# calls_of OWNER [PATH] prints "key arguments" for each call of OWNER in
+# $controls_calls, in order. With PATH, only the calls at that path.
+calls_of() {
+  awk -F '\t' -v owner="$1" -v path="${2-}" \
+    '$1 == owner && (path == "" || $2 == path) { print $3 " " $4 }' <<< "$controls_calls"
+}
+
+# expect_same NAME EXPECTED ACTUAL checks that the two texts are equal.
+expect_same() {
+  if [[ $2 == "$3" ]]; then
+    pass "$1"
+  else
+    fail "$1" "expected: $(tr '\n' '|' <<< "$2") actual: $(tr '\n' '|' <<< "$3")"
+  fi
+}
+
+test_action_search() {
+  local found
+  found=$(action_calls - << 'YAML'
+script:
+  - id: mill_a
+    then:
+      - if:
+          condition:
+            or:
+              - light.is_on: mill_door_lamp
+          then:
+            - delay: 3s
+            # - light.turn_on: mill_pixels
+            - light.turn_on:
+                id: mill_door_glow
+                red: 100%
+YAML
+)
+  expect_same "action search lists each call with its owner, path and arguments" \
+    $'script/mill_a\tthen/if/condition/or\tlight.is_on\tmill_door_lamp\nscript/mill_a\tthen/if/then\tdelay\t3s\nscript/mill_a\tthen/if/then\tlight.turn_on\tid=mill_door_glow;red=100%' \
+    "$found"
+}
+
+partitions="mill_door_glow mill_stone_window mill_bin_window mill_door_lamp"
+interior="mill_door_glow mill_stone_window mill_bin_window"
+
+test_controls_button() {
+  local package header word missing="" button pin on_keys clicks
+  package=$(cat "$repo/packages/mill_controls.yaml" 2> /dev/null || true)
+  expect_setting "node includes the controls package" "$(section packages "$(cat "$repo/windmill.yaml")")" \
+    '^  controls: !include packages/mill_controls\.yaml$'
+  expect_setting "controls package takes the button pin from its substitution" "$package" \
+    "^ +number: '?\\\$\\{button_pin\\}'?$"
+  header=$(awk '!/^#/ { exit } 1' <<< "$package")
+  for word in button_pin mill_button mill_toggle mill_on mill_off; do
+    grep -qw -- "$word" <<< "$header" || missing+=" $word"
+  done
+  if [[ -n $header && -z $missing ]]; then
+    pass "controls package starts with a comment that lists its substitution and ids"
+  else
+    fail "controls package starts with a comment that lists its substitution and ids" "missing:${missing:- the comment}"
+  fi
+  [[ $config_status -ne 0 ]] && return
+  expect_setting "node sets the button pin to GPIO5" "$(section substitutions)" "^  button_pin: '?GPIO5'?$"
+  button=$(list_item "$(section binary_sensor)" "^    name: '?Mill Button'?$")
+  expect_setting "Mill Button has id mill_button" "$button" '^    id: mill_button$'
+  expect_setting "Mill Button is a GPIO input" "$button" '^  - platform: gpio$'
+  if [[ $(pin_number "$button" pin) == 5 ]]; then
+    pass "Mill Button pin is GPIO5"
+  else
+    fail "Mill Button pin is GPIO5" "pin number is '$(pin_number "$button" pin)' in: $button"
+  fi
+  pin=$(flat "$(item_key "$button" pin)")
+  expect_setting "Mill Button pin is an input with pull-up" "$pin" ' mode: input: true pullup: true '
+  expect_setting "Mill Button pin is inverted" "$pin" ' inverted: true '
+  expect_setting "Mill Button has only a 20 ms debounce filter" "$(flat "$(item_key "$button" filters)")" \
+    '^ ?- delayed_on_off: 20ms ?$'
+  on_keys=$( (grep -E '^    on_[a-z_]+:' <<< "$button" || true) | tr -d ' ' | tr '\n' ' ')
+  expect_same "Mill Button has a click handler and no other handler" "on_click: " "$on_keys"
+  clicks=$(item_key "$button" on_click)
+  if [[ $(grep -c '^      - ' <<< "$clicks") -eq 1 ]]; then
+    pass "Mill Button has exactly one click handler"
+  else
+    fail "Mill Button has exactly one click handler" "on_click: $clicks"
+  fi
+  expect_setting "Mill Button click is 50-500 ms and runs the toggle" "$(flat "$clicks")" \
+    '^ ?- min_length: 50ms max_length: 500ms then: - script\.execute: id: mill_toggle ?$'
+}
+
+test_controls_scripts() {
+  [[ $config_status -ne 0 ]] && return
+  local expected id level logs bad mill_on before after pairs
+  controls_calls=$(action_calls - <<< "$config")
+  expected="switch.is_on id=mill_sails_turn"
+  for id in $partitions; do expected+=$'\n'"light.is_on id=$id"; done
+  expect_same "toggle checks the sails and all four lights" "$expected" \
+    "$(calls_of script/mill_toggle then/if/condition/or)"
+  expect_setting "toggle turns the mill off when anything is on" \
+    "$(calls_of script/mill_toggle then/if/then | tr '\n' '|')" \
+    '^script\.execute id=mill_off\|logger\.log format=[^|;]*mill off;'
+  expect_setting "toggle turns the mill on when everything is off" \
+    "$(calls_of script/mill_toggle then/if/else | tr '\n' '|')" \
+    '^script\.execute id=mill_on\|logger\.log format=[^|;]*mill on;'
+  logs=$(grep -P '\tlogger\.log\t' <<< "$controls_calls" || true)
+  bad=$(grep -vE ';level=INFO;tag=mill\.controls(;|$)' <<< "$logs" || true)
+  if [[ $(grep -c . <<< "$logs") -eq 2 && -z $bad ]]; then
+    pass "both log calls use level INFO and tag mill.controls"
+  else
+    fail "both log calls use level INFO and tag mill.controls" "log calls: $logs"
+  fi
+  expected=$'script.stop id=mill_on\nswitch.turn_off id=mill_sails_turn'
+  for id in $partitions; do expected+=$'\n'"light.turn_off id=$id;state=false"; done
+  expect_same "mill off stops mill on first, then stops the sails and turns off the four lights" \
+    "$expected" "$(calls_of script/mill_off)"
+  expect_setting "mill on restarts when run again" \
+    "$(list_item "$(section script)" '^  - id: mill_on$')" '^    mode: restart$'
+  mill_on=$(calls_of script/mill_on)
+  before=$(sed '/^delay /,$d' <<< "$mill_on")
+  after=$(sed -n '/^delay /,$p' <<< "$mill_on")
+  expected="switch.turn_on id=mill_sails_turn"
+  for id in $partitions; do
+    [[ $id == mill_door_lamp ]] && level=0.85 || level=1.0
+    expected+=$'\n'"light.turn_on id=$id;color_mode=RGB_WHITE;brightness=$level;color_brightness=1.0;red=1.0;green=0.47;blue=0.16;white=0.0;state=true"
+  done
+  expect_same "mill on starts the sails, then fades the lights on to amber with white off and no effect" \
+    "$expected" "$before"
+  pairs=$(sed -n '/^light\.turn_on .*effect=/{x;G;s/\n/ => /;p};h' <<< "$after")
+  expected=""
+  for id in $interior; do
+    expected+="${expected:+$'\n'}lambda return id($id).remote_values.is_on(); => light.turn_on id=$id;effect=Lamplight;state=true"
+  done
+  expect_setting "mill on waits 3 s for the fade" "$after" '^delay 3s$'
+  expect_same "after the fade, mill on starts Lamplight on each interior light that is still on" \
+    "$expected" "$pairs"
+}
+
+test_controls_boundaries() {
+  local package text found ids id outside=""
+  package="$repo/packages/mill_controls.yaml"
+  if [[ ! -f $package ]]; then
+    fail "controls package exists" "no file $package"
+    return
+  fi
+  text=$(sed -E 's/(^|[[:space:]])#.*$//' "$package")
+  found=$(grep -n 'mill_sails_reverse' "$package" || true)
+  expect_same "controls package does not name the direction global" "" "$found"
+  found=$(grep -n 'homeassistant' <<< "$text" || true)
+  expect_same "controls package makes no call to Home Assistant" "" "$found"
+  found=$( (strip_writes "$package"; grep -n 'mill_pixels' <<< "$text") || true)
+  expect_same "controls package does not write or name the strip" "" "$found"
+  ids=$(action_calls "$package" | awk -F '\t' '$3 ~ /^light\.(turn_on|control|toggle)$/ { print $4 }' |
+    sed -E 's/^(.*;)?id=([^;]*).*$/\2/')
+  for id in $ids; do
+    grep -qw -- "$id" <<< "$partitions" || outside+=" $id"
+  done
+  if [[ -n $ids && -z $outside ]]; then
+    pass "every light the controls package turns on is a capped partition light"
+  else
+    fail "every light the controls package turns on is a capped partition light" \
+      "lights outside the four partitions:${outside:- none, but no light is turned on}"
+  fi
+}
+
 test_tool_versions
 test_full_pass_with_stubs
 test_refuses_missing_secrets
@@ -688,6 +905,10 @@ test_packages_hold_no_node_config
 test_no_strip_writes
 test_lights_settings
 test_lamplight_effects
+test_action_search
+test_controls_button
+test_controls_scripts
+test_controls_boundaries
 
 echo "$passed passed, $failed failed"
 [[ $failed -eq 0 ]]
