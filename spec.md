@@ -13,11 +13,11 @@ That single rule is what makes both your migration paths work later:
 | Path | What changes | What doesn't |
 | --- | --- | --- |
 | Keep the ESP | Plug its USB cable into any 5V USB source, or a 12V-to-USB module if a 12V bus ever exists | Everything inside the mill |
-| Fold it into the main hub | Lift the mill, unplug the 8-pin connector, run 8 wires to the hub | The mill, the drive, the pixels, the mounting |
+| Fold it into the main hub | Lift the mill, unplug its two connectors, run 9 wires to the hub | The mill, the drive, the pixels, the mounting |
 
-So the module is built around an internal split at the base of the mill. Above the split: the mill, sails, motor and pixel string, terminating in an **8-pin JST-XH** carrying four stepper coils, pixel data, the doorbell button, 5V and GND. Below the split, on an electronics plate fixed to the mounting pad inside the mill's ground floor: the ESP and the ULN2003. The mill sits down over the plate and lifts off it, so everything below the split stays serviceable without a base box (decided 2026-10-03).
+So the module is built around an internal split at the base of the mill. Above the split: the mill, sails, motor and pixel string, terminating in **two connectors** (decided 2026-10-03): the motor's own **5-pin JST-XH**, extended down the tower, which plugs straight into the ULN2003 board; and a **4-pin JST** carrying 5V, GND, pixel data and the doorbell button. The two have different pin counts, so they cannot be swapped. Below the split, on an electronics plate fixed to the mounting pad inside the mill's ground floor: the ESP and the ULN2003. The mill sits down over the plate and lifts off it, so everything below the split stays serviceable without a base box (decided 2026-10-03).
 
-When the mill joins the main system you either leave the plate alone and change what feeds the USB cable, or you pull the ESP and extend that 8-pin connector to the hub. Neither touches anything you glued.
+When the mill joins the main system you either leave the plate alone and change what feeds the USB cable, or you pull the ESP and extend those two connectors to the hub. Neither touches anything you glued.
 
 ### Why USB-C in (decided 2026-10-02)
 
@@ -223,12 +223,12 @@ Use the shifter if you're building the board anyway. Either way, put a 330R resi
 
 ### Layout in the ground floor
 
-The C3, the ULN2003 and the 8-pin board header sit on a small ply electronics plate fixed to the mounting pad, inside the mill's footprint. The mill's ground floor is open underneath and comes down over it.
+The C3, the ULN2003 and the 4-pin board header sit on a small ply electronics plate fixed to the mounting pad, inside the mill's footprint. The mill's ground floor is open underneath and comes down over it.
 
 - **Electronics bay.** Build a light-tight black card bay around the plate at the back of the ground floor, with its own ceiling. It must hide the electronics from the doorway as well as from above, because the door glow (pixel 0) and the door lamp (pixel 3) sit right there. Measure the base former and the door height before sizing the plate; keep the electronics under about 30mm tall.
 - **Light sources.** Desolder the ULN2003 board's four step LEDs; they flash with every step. Paint over the C3's red power LED and blue LED with black paint.
 - **Heat.** The ULN2003 dissipates about 0.3-0.4W the whole time it holds the sails. Leave a vent gap low in the bay so warm air can leave.
-- **Doorbell.** The button is a small tactile switch set into the wall beside the door as a bell push, so the mill works on its own before any scenery exists. Its two wires run inside into the ground floor: one to pin 8 of the 8-pin plug, the other to the pigtail's GND.
+- **Doorbell.** The button is a small tactile switch set into the wall beside the door as a bell push, so the mill works on its own before any scenery exists. Its two wires run inside into the ground floor: one to the button pin of the 4-pin plug, the other to its GND.
 - **Antenna.** Keep the ULN2003 apart from the ESP, and the ESP's antenna end (opposite the USB-C socket) away from any metal. If WiFi is marginal, that's the first thing to move.
 
 ## Wiring diagram
@@ -239,23 +239,22 @@ flowchart TD
 
   ESP -->|5V pin| RAIL[5V rail]
   RAIL --> ULN[ULN2003 driver<br/>+ 470uF]
-  RAIL --> SHIFT[Data-level fix<br/>diode drop or 74AHCT125]
+  RAIL --> J4[4-pin JST<br/>5V, GND, data, button]
 
   ESP -->|GPIO0, 1, 3, 4| ULN
-  ESP -->|GPIO6| SHIFT
-  BTN[Doorbell button<br/>beside the mill door] -->|GPIO5, pin 8| ESP
+  ESP -->|GPIO6| J4
+  J4 -->|GPIO5| ESP
 
-  ULN --> J7
-  SHIFT --> J7
-  RAIL --> J7[8-pin JST-XH<br/>base of mill]
-
-  J7 -->|4 coils| MOT[28BYJ-48<br/>in the cap]
-  J7 -->|data, 5V, GND| PIX[4 x SK6812<br/>up the tower]
+  ULN --> J5[Motor's 5-pin JST-XH<br/>into the ULN2003]
+  J5 -->|4 coils + common| MOT[28BYJ-48<br/>in the cap]
+  J4 -->|5V| SHIFT[Diode drop<br/>+ 330R in data]
+  SHIFT -->|data, 5V, GND| PIX[4 x SK6812<br/>up the tower]
+  BTN[Doorbell button<br/>beside the mill door] --> J4
 
   MOT --> SHAFT[Coupler, 4mm shaft,<br/>684ZZ bearing, sail hub]
 ```
 
-Everything above the JST-XH is inside the mill and gets glued in. Everything below it is on the electronics plate and stays serviceable when the mill lifts off. That connector is the boundary the whole module is designed around, so make it a proper crimped JST-XH with a latch rather than a header strip.
+Everything above the two connectors is inside the mill and gets glued in. Everything below them is on the electronics plate and stays serviceable when the mill lifts off. The connectors are the boundary the whole module is designed around, so make them proper crimped JST housings with latches rather than header strips. On the plate, the C3 board carries three JSTs of its own (5V/GND, the 5-way stepper header with GPIO2 empty, and data/button); keep its two 2-pin connectors inside the plate and never unplug them, because swapping them would put 5V on GPIO5 and GPIO6.
 
 ## ESPHome configuration
 
@@ -472,7 +471,7 @@ script:
 | Layer | Part |
 | --- | --- |
 | Mill | Base former + 4mm ply ring glued under it, open in the centre |
-| Electronics | Ply plate with the C3, ULN2003 and 8-pin header, fixed to the pad inside the ring |
+| Electronics | Ply plate with the C3, ULN2003 and 4-pin header, fixed to the pad inside the ring |
 | Landscape | Papier-mâché, with a let-in ply pad flush to the surface |
 | Pad | 6mm ply or hardwood disc, 130mm, bedded on the baseboard |
 | Baseboard | 12mm ply |
@@ -494,7 +493,7 @@ Only the USB cable leaves the mill. It runs from the C3 on the electronics plate
 
 ### Access
 
-The mill lifts off by releasing its fixing and lifting it straight up, which exposes the electronics plate; then unplug the 8-pin connector. Nothing else is attached. Keep it that way: don't glue the mill's base into the landscape, and leave a 1mm shadow gap around it filled with snow or loose ground cover rather than adhesive.
+The mill lifts off by releasing its fixing and lifting it straight up, which exposes the electronics plate; then unplug the motor plug from the ULN2003 and the 4-pin connector. Nothing else is attached. Keep it that way: don't glue the mill's base into the landscape, and leave a 1mm shadow gap around it filled with snow or loose ground cover rather than adhesive.
 
 ### Standing it before the board exists
 
@@ -555,11 +554,11 @@ The windmill stays a separate node in Home Assistant, appearing as its own devic
 
 Lift the mill off its electronics plate:
 
-1. Unplug the 8-pin JST-XH from the plate.
-2. Extend those eight conductors to the nearest junction box on a single cable.
+1. Unplug the motor's 5-pin plug from the ULN2003 and the 4-pin JST from the plate.
+2. Extend those nine conductors to the nearest junction box on a single cable.
 3. At the hub, the four coil wires go to a spare ULN2003, the data line to a spare RMT channel, the button line to a spare input, 5V and GND to the bus.
 4. Move the stepper and light blocks from this config into the hub's config, renaming ids to avoid collisions.
-5. Remove the C3 and the ULN2003 from the plate, or leave them in place unpowered. The hub then supplies 5V to the 8-pin connector.
+5. Remove the C3 and the ULN2003 from the plate, or leave them in place unpowered. The hub then supplies 5V to the 4-pin connector, and a hub ULN2003 drives the motor plug.
 
 The one thing to watch: stepper coil signals over a run of a metre or more are more susceptible to noise than you'd expect. Use twisted pairs and keep the run away from pixel data. If the sails start stuttering after the move, that's why.
 
@@ -589,7 +588,7 @@ Approximate UK prices from memory, so budget rather than quote. Around £55 all 
 | 1 | 684ZZ bearing, 4 x 9 x 4mm | 3 |
 | 1 | Shaft coupler, 5mm to 4mm | 3 |
 | 1 | 4mm brass tube, 300mm (sail shaft) | 3 |
-| 1 | JST-XH 8-pin kit with crimps | 4 |
+| 1 | JST-XH 5-pin extension for the motor, 4-pin JST pair, crimps | 4 |
 | 1 | 5V 2A USB charger and USB-A to USB-C cable | 6 |
 | - | 4mm and 6mm ply offcuts, M4 inserts and bolts | 5 |
 | - | 470uF 16V capacitor (plus 100-1000uF only if the one-hour run needs it), 330R, small tactile switch for the doorbell, cable clamp, wire | 3 |

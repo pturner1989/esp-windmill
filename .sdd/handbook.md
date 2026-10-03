@@ -70,7 +70,7 @@ Every change must keep these true. A review must check them.
 3. **Sail speed stays in 60–320 steps/s.** Set the bounds on the number entity. Do not allow a path that sets speed outside this range.
 4. **Pin allocation matches `spec.md`.** GPIO0, GPIO1, GPIO3, GPIO4 drive stepper IN1–IN4; GPIO6 pixel data; GPIO5 button. GPIO2 stays unconnected (boot-strapping pin).
 5. **Serial logging stays off on the C3** (`logger: baud_rate: 0`) in the shipped config.
-6. **The 8-pin JST-XH is the module boundary.** Firmware must not assume anything above it except four coils, one data line and the button.
+6. **The two mill connectors are the module boundary** (the motor's 5-pin JST-XH and a 4-pin JST for 5V, GND, data and button). Firmware must not assume anything above them except four coils, one data line and the button.
 
 ## Error handling and fail-safe behaviour
 
