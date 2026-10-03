@@ -115,7 +115,7 @@ AC-1 and AC-2 are agent-checkable; AC-3 to AC-5 need the operator, after the ULN
 
 ### Task 3: Sail Speed set, rounded, rejected and restored
 
-- **Status:** Backlog
+- **Status:** In Progress (operator checks AC-3 to AC-7 pending)
 - **Blocked by:** Task 2
 
 **What to build:**

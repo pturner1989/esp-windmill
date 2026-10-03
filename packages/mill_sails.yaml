@@ -2,7 +2,7 @@
 # Needs substitutions: sails_pin_a, sails_pin_b, sails_pin_c, sails_pin_d
 #   (ULN2003 IN1 to IN4) and sails_forward_direction ("1" or "-1").
 # Exposes ids: mill_sails (stepper), mill_sails_turn (switch "Sails Turning"),
-#   mill_sails_rearm (script).
+#   mill_sail_speed (number "Sail Speed"), mill_sails_rearm (script).
 
 stepper:
   - platform: uln2003
@@ -23,12 +23,48 @@ switch:
     optimistic: true
     restore_mode: ALWAYS_OFF
     turn_on_action:
+      # Round half up to a multiple of 10 and keep it in 60-320. An unknown
+      # speed gives 170.
+      - stepper.set_speed:
+          id: mill_sails
+          speed: !lambda |-
+            float s = id(mill_sail_speed).state;
+            return std::isnan(s) ? 170.0f : std::clamp(std::floor((s + 5) / 10) * 10, 60.0f, 320.0f);
       - script.execute: mill_sails_rearm
     # A target equal to the current position stops the sails on the next step.
     turn_off_action:
       - stepper.set_target:
           id: mill_sails
           target: !lambda "return id(mill_sails).current_position;"
+
+number:
+  - platform: template
+    name: Sail Speed
+    id: mill_sail_speed
+    min_value: 60
+    max_value: 320
+    step: 10
+    initial_value: 170
+    unit_of_measurement: steps/s
+    optimistic: false
+    restore_value: true
+    # ESPHome rejects a value outside 60-320 before this action runs.
+    set_action:
+      - if:
+          condition:
+            lambda: "return std::floor((x + 5) / 10) * 10 == x;"
+          then:
+            - lambda: "id(mill_sail_speed).publish_state(x);"
+            - stepper.set_speed:
+                id: mill_sails
+                speed: !lambda "return x;"
+          # Set the rounded value one loop pass later. The number saves the raw
+          # value after this action, so the rounded value is saved last.
+          else:
+            - delay: 0ms
+            - number.set:
+                id: mill_sail_speed
+                value: !lambda "return std::floor((x + 5) / 10) * 10;"
 
 script:
   # Re-base to 0, then aim far ahead. Both calls run in one loop pass, so no

@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# Tests for scripts/check.sh and the repository's secrets and node settings.
-# Run it with the venv active: the tool-version and node-config tests use the
-# real esphome and yamllint. The refusal tests run check.sh in a temporary git
-# repository with stub tools that record each call.
+# Tests for scripts/check.sh, the repository's secrets, the node settings and
+# the packages. Run it with the venv active: the tool-version and node-config
+# tests use the real esphome and yamllint, and the lambda test uses the venv's
+# PyYAML. The refusal tests run check.sh in a temporary git repository with
+# stub tools that record each call.
 set -euo pipefail
 
 repo=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
@@ -161,9 +162,10 @@ test_example_secrets_are_placeholders() {
   fi
 }
 
-# section NAME prints the top-level block NAME from the validated config.
+# section NAME [TEXT] prints the top-level block NAME from TEXT, or from the
+# validated config when TEXT is not given.
 section() {
-  awk -v key="$1:" '$0 == key { on = 1; next } /^[^ ]/ { on = 0 } on' <<< "$config"
+  awk -v key="$1:" '$0 == key { on = 1; next } /^[^ ]/ { on = 0 } on' <<< "${2-$config}"
 }
 
 # expect_setting NAME BLOCK PATTERN checks that BLOCK contains PATTERN.
@@ -183,6 +185,21 @@ list_item() {
     { item = item $0 "\n" }
     $0 ~ pat { hit = 1 }
     END { if (hit) printf "%s", item }' <<< "$1"
+}
+
+# item_key ITEM KEY prints the lines nested under KEY in the list entry ITEM.
+item_key() {
+  awk -v key="$2:" '
+    NF { match($0, /[^ ]/) }
+    on && NF && RSTART <= 5 { exit }
+    on
+    $0 == "    " key { on = 1 }' <<< "$1"
+}
+
+# flat TEXT prints TEXT without comment lines on one line, with each run of
+# spaces and line breaks as one space.
+flat() {
+  sed '/^ *#/d' <<< "$1" | tr -s ' \n' ' '
 }
 
 # pin_number BLOCK PIN prints the GPIO number of PIN (for example pin_a) in BLOCK.
@@ -257,6 +274,117 @@ test_sails_settings() {
   expect_setting "Sails Turning boots off" "$turn" '^    restore_mode: ALWAYS_OFF$'
 }
 
+test_sail_speed_settings() {
+  [[ $config_status -ne 0 ]] && return
+  local speed
+  speed=$(list_item "$(section number)" "^    name: '?Sail Speed'?$")
+  expect_setting "Sail Speed has id mill_sail_speed" "$speed" '^    id: mill_sail_speed$'
+  expect_setting "Sail Speed minimum is 60" "$speed" '^    min_value: 60(\.0)?$'
+  expect_setting "Sail Speed maximum is 320" "$speed" '^    max_value: 320(\.0)?$'
+  expect_setting "Sail Speed step is 10" "$speed" '^    step: 10(\.0)?$'
+  expect_setting "Sail Speed starts at 170" "$speed" '^    initial_value: 170(\.0)?$'
+  expect_setting "Sail Speed is in steps/s" "$speed" "^    unit_of_measurement: '?steps/s'?$"
+  expect_setting "Sail Speed restores its value" "$speed" '^    restore_value: true$'
+  expect_setting "Sail Speed is not optimistic" "$speed" '^    optimistic: false$'
+}
+
+test_sail_speed_rounding() {
+  local package speed turn set_action turn_on round_x round_any
+  package=$(cat "$repo/packages/mill_sails.yaml" 2> /dev/null || true)
+  speed=$(list_item "$(section number "$package")" "^    name: '?Sail Speed'?$")
+  turn=$(list_item "$(section switch "$package")" "^    name: '?Sails Turning'?$")
+  set_action=$(flat "$(item_key "$speed" set_action)")
+  turn_on=$(flat "$(item_key "$turn" turn_on_action)")
+  round_x='floor\(\(x \+ 5\) / 10\) \* 10'
+  round_any='floor\(\([a-z_]+ \+ 5\) / 10\) \* 10'
+  expect_setting "Sail Speed set action rounds half up to a multiple of 10" "$set_action" "$round_x"
+  expect_setting "Sail Speed set action sets the rounded value one loop pass later" "$set_action" \
+    "- delay: 0ms - number\.set: id: mill_sail_speed value: [^-]*$round_x"
+  expect_setting "Sail Speed set action passes the speed to the stepper" "$set_action" \
+    '- stepper\.set_speed: id: mill_sails '
+  expect_setting "Sails Turning turn-on rounds Sail Speed half up" "$turn_on" "$round_any"
+  expect_setting "Sails Turning turn-on clamps the speed to 60-320" "$turn_on" \
+    'clamp\(.+, 60(\.0f?)?, 320(\.0f?)?\)'
+  expect_setting "Sails Turning turn-on uses 170 for an unknown speed" "$turn_on" \
+    'isnan\([a-z_]+\) \? 170(\.0f?)? :'
+  expect_setting "Sails Turning turn-on reads Sail Speed" "$turn_on" 'id\(mill_sail_speed\)\.state'
+  expect_setting "Sails Turning sets the speed, then re-arms" "$turn_on" \
+    '^ ?- stepper\.set_speed: id: mill_sails .*- script\.execute: mill_sails_rearm'
+}
+
+# long_lambdas FILE... prints the first line of each lambda in FILE that spans
+# more than two source lines. A lambda is a value tagged !lambda or the value
+# of a "lambda" key.
+long_lambdas() {
+  python3 - "$@" << 'PY'
+import sys
+
+import yaml
+
+
+def source_lines(node, text):
+    lines = text[node.start_mark.index:node.end_mark.index].strip().splitlines()
+    if node.style in ("|", ">"):
+        lines = lines[1:]
+    return [line.strip() for line in lines if line.strip()]
+
+
+def walk(node, key, text, found):
+    if isinstance(node, yaml.MappingNode):
+        for k, v in node.value:
+            walk(v, k.value, text, found)
+    elif isinstance(node, yaml.SequenceNode):
+        for v in node.value:
+            walk(v, key, text, found)
+    elif node.tag == "!lambda" or key == "lambda":
+        lines = source_lines(node, text)
+        if len(lines) > 2:
+            found.append(lines[0])
+
+
+for path in sys.argv[1:]:
+    with open(path) as f:
+        text = f.read()
+    found = []
+    walk(yaml.compose(text, Loader=yaml.SafeLoader), None, text, found)
+    for first in found:
+        print(f"{path.rsplit('/', 1)[-1]}: {first}")
+PY
+}
+
+test_lambdas_are_short() {
+  local fixture found
+  fixture=$(mktemp -d "$work/lambdas.XXXX")
+  cat > "$fixture/mill_bad.yaml" << 'YAML'
+number:
+  - set_action:
+      - lambda: |-
+          int a = 1;
+          int b = 2;
+          return a + b;
+      - lambda: "return 1;"
+    speed: !lambda |-
+      float s = 1;
+      return s;
+    target: !lambda >-
+      int a = 1;
+      int b = 2;
+      return a + b;
+YAML
+  found=$(long_lambdas "$fixture/mill_bad.yaml")
+  if [[ $(grep -c . <<< "$found") -eq 2 ]]; then
+    pass "lambda search finds lambdas longer than two lines"
+  else
+    fail "lambda search finds lambdas longer than two lines" "found: $found"
+  fi
+  found=$(long_lambdas "$repo"/packages/*.yaml)
+  if [[ -z $found ]]; then
+    pass "no lambda in a package is longer than two lines"
+  else
+    fail "no lambda in a package is longer than two lines" "found: $found"
+  fi
+}
+
 # package_violations DIR prints each line of DIR/*.yaml, with comments
 # removed, that holds a node-level key or a literal GPIO number.
 package_violations() {
@@ -301,6 +429,9 @@ test_example_secrets_are_placeholders
 load_config
 test_node_settings
 test_sails_settings
+test_sail_speed_settings
+test_sail_speed_rounding
+test_lambdas_are_short
 test_packages_hold_no_node_config
 
 echo "$passed passed, $failed failed"
