@@ -275,14 +275,14 @@ AC-1 is agent-checkable; AC-2 and AC-3 need the operator with the pixels wired. 
 
 **What to build:**
 
-A short press of the Mill Button (50–500 ms) toggles the whole mill. If the sails turn or any of the four lights is on, the press turns the mill off: the sails stop at once and all four lights fade off. Otherwise the press turns the mill on: the sails start at the current Sail Speed, the three interior lights fade on to warm deep amber at full brightness and then start Lamplight, and the door lamp fades on to a steady warm deep amber at 85%. A long press does nothing. HA shows "Mill Button" as pressed or released, and every change the button makes shows in HA at once. Each toggle writes one INFO log line, under the tag mill.controls, that says whether the mill went on or off. The scripts use only firmware entities, so they need no network.
+A short press of the Mill Button (50–500 ms) toggles the whole mill. If the sails turn or any of the four lights is on, the press turns the mill off: the sails stop at once and all four lights fade off. Otherwise the press turns the mill on: the sails start at the current Sail Speed, the three interior lights fade on to warm deep amber at full brightness and then start Lamplight, and the door lamp fades on to a steady warm deep amber at 85%. A long press (1–5 s, acting on release) toggles "Reverse Rotation" while "Sails Turning" is on, so the sails reverse at once without a stop, and logs one INFO line under mill.controls; while the sails are stopped it does nothing. Any other press does nothing. HA shows "Mill Button" as pressed or released, and every change the button makes shows in HA at once. Each toggle writes one INFO log line, under the tag mill.controls, that says whether the mill went on or off. The scripts use only firmware entities, so they need no network.
 
 **Acceptance criteria:**
 
 **AC-1:**
 - **Given:** The example secrets in place
 - **When:** The reviewer runs the check script and reads the controls package
-- **Then:** All runs pass; "Mill Button" reads the button pin substitution (GPIO5) with pull-up, inverted, with a 20 ms debounce; it has exactly one click handler, limited to 50–500 ms, and no long-press or multi-click handler; the toggle checks the sails and all four lights; both log calls use level INFO and tag `mill.controls`; the mill-off script stops the mill-on script
+- **Then:** All runs pass; "Mill Button" reads the button pin substitution (GPIO5) with pull-up, inverted, with a 20 ms debounce; it has exactly two click ranges and no multi-click, double-click, press or release handler; the 50–500 ms range runs the toggle; the 1–5 s range toggles "Reverse Rotation" only while "Sails Turning" is on and then logs the reversal; the toggle checks the sails and all four lights; all three log calls use level INFO and tag `mill.controls`; the mill-off script stops the mill-on script
 
 **AC-2:**
 - **Given:** The controls package
@@ -300,14 +300,14 @@ A short press of the Mill Button (50–500 ms) toggles the whole mill. If the sa
 - **Then:** The door lamp pixel begins to dim within 1 s of release and is dark within 4 s, and within 5 s HA shows "Mill Door Lamp" off
 
 **AC-5:**
-- **Given:** HA is connected and shows "Mill Button"
-- **When:** The operator holds the button for about two seconds and releases it
-- **Then:** HA shows "Mill Button" pressed while held and released after, and the sails and lights do not change
+- **Given:** The motor and button are wired with a mark on the coupler, HA is connected and shows "Mill Button" and "Reverse Rotation", the mill is off and "Reverse Rotation" is off
+- **When:** The operator holds the button for about 2 s and releases it; short-presses to turn the mill on and waits until the mark turns; holds the button for about 2 s and releases it; then holds it for about 7 s and releases it, watching 10 s after each release
+- **Then:** HA shows "Mill Button" pressed while held and released after each release; after the first hold, with the sails stopped, the mark does not move, the lights stay off and "Reverse Rotation" stays off; after the second hold the mark changes from anticlockwise to clockwise within 1 s of release without stopping, HA shows "Reverse Rotation" on within 5 s, "Sails Turning" stays on and the lights do not change; after the 7 s hold nothing changes
 
 **AC-6:**
 - **Given:** The C3 is powered from the laptop's USB cable with a serial monitor open on it, and the device runs on the network
-- **When:** The operator opens the network log with the log command and short-presses the button
-- **Then:** Within 2 minutes the network log shows a message that the mill turned on or off, and the serial monitor shows no firmware log lines
+- **When:** The operator opens the network log with the log command, short-presses the button so that the sails turn, then holds it for about 2 s and releases it
+- **Then:** Within 2 minutes the network log shows a message that the mill turned on or off and, after the long press, a message that the sails reversed; the serial monitor shows no firmware log lines
 
 **AC-7:**
 - **Given:** A meter is in series with the pixel 5 V feed, all four lights are on at 100% white with no effect, the sails are stopped, and the AT-11 second reading is recorded
@@ -321,7 +321,7 @@ A short press of the Mill Button (50–500 ms) toggles the whole mill. If the sa
 
 **Notes:**
 
-AC-1 and AC-2 are agent-checkable; AC-3 to AC-8 need the operator after the button is wired from GPIO5 to ground. For AC-6 on laptop power, the operator uses a USB port that supplies 900 mA or more, or a powered hub, so the C3 does not brown out when the mill turns on. The mill-on look is a Phase 4 starting value (RGB inputs 100/76/52 in percent, which give about 255/120/40 at the LED after gamma 2.8; 100/47/16 looked pink-red at the bench); the lights fade without an effect first, because ESPHome skips the default transition when a call sets an effect, and Lamplight starts after 3 s only on interior lights that are still on. The scripts never touch "Reverse Rotation", which Task 9 checks from the operator side. This task contributes AT-12, AT-13, AT-16, AT-21 (completed here), the third reading of AT-11 and the entity list of AT-19 (FR-02, FR-13, FR-15, FR-16, FR-17, FR-18, FR-19, FR-27, FR-40, FR-41, NFR-01).
+AC-1 and AC-2 are agent-checkable; AC-3 to AC-8 need the operator after the button is wired from GPIO5 to ground. For AC-6 on laptop power, the operator uses a USB port that supplies 900 mA or more, or a powered hub, so the C3 does not brown out when the mill turns on. The mill-on look is a Phase 4 starting value (RGB inputs 100/76/52 in percent, which give about 255/120/40 at the LED after gamma 2.8; 100/47/16 looked pink-red at the bench); the lights fade without an effect first, because ESPHome skips the default transition when a call sets an effect, and Lamplight starts after 3 s only on interior lights that are still on. The toggle and the mill scripts never touch "Reverse Rotation", which Task 9 checks from the operator side. The long-press reverse was added by user request on 2026-10-03; it toggles the Task 9 switch (not the global), so HA shows the change and the switch's own actions re-arm the sails, and its AC-5 check needs the motor wired and Task 9 in place. This task contributes AT-12, AT-13, AT-16, AT-21 (completed here), the third reading of AT-11 and the entity list of AT-19 (FR-02, FR-13, FR-15, FR-16, FR-17, FR-18, FR-19, FR-27, FR-40, FR-41, FR-43, FR-44, NFR-01).
 
 ### Task 8: Mill keeps its state through network loss
 
@@ -365,14 +365,14 @@ AC-1 is agent-checkable; AC-2 to AC-4 need the operator, who must be able to swi
 
 **What to build:**
 
-The sails package gains a "Reverse Rotation" switch in HA and a direction global, `mill_sails_reverse`. Both are permanent production parts; there is no bench package. The switch is optimistic and boots off, and the global does not restore, so the sails start forward after every restart. While the switch is on, the sails turn in reverse whenever they turn. Turning it on or off while the sails turn re-arms them at once in the new direction, with no stop and no change to "Sails Turning". Turning it on or off while the sails are stopped only sets the direction for the next start. The re-arm target multiplies the forward-direction substitution by the reverse sign. The button and the mill scripts never change the direction. The README gains a "Sail direction" section.
+The sails package gains a "Reverse Rotation" switch in HA and a direction global, `mill_sails_reverse`. Both are permanent production parts; there is no bench package. The switch is optimistic and boots off, and the global does not restore, so the sails start forward after every restart. While the switch is on, the sails turn in reverse whenever they turn. Turning it on or off while the sails turn re-arms them at once in the new direction, with no stop and no change to "Sails Turning". Turning it on or off while the sails are stopped only sets the direction for the next start. The re-arm target multiplies the forward-direction substitution by the reverse sign. A short press and the mill scripts never change the direction; only the Task 7 long press toggles the switch from the button. The README gains a "Sail direction" section.
 
 **Acceptance criteria:**
 
 **AC-1:**
 - **Given:** The example secrets in place
 - **When:** The reviewer runs the check script and reads the sails and controls packages
-- **Then:** All three runs pass; the global `mill_sails_reverse` is a bool that starts false and does not restore; "Reverse Rotation" (`mill_sails_reverse_switch`) is optimistic with restore mode ALWAYS_OFF, sets the global on turn-on and turn-off, and runs the re-arm script only while "Sails Turning" is on; the re-arm target is the forward-direction substitution times the reverse sign times 10,000,000; nothing other than this switch changes the global or the switch; and the controls package names neither id
+- **Then:** All three runs pass; the global `mill_sails_reverse` is a bool that starts false and does not restore; "Reverse Rotation" (`mill_sails_reverse_switch`) is optimistic with restore mode ALWAYS_OFF, sets the global on turn-on and turn-off, and runs the re-arm script only while "Sails Turning" is on; the re-arm target is the forward-direction substitution times the reverse sign times 10,000,000; nothing other than this switch changes the global; nothing in the firmware other than the controls long press changes the switch; and the controls package never names the global, so it never sets it directly
 
 **AC-2:**
 - **Given:** The motor and button are wired, Sail Speed is 170, the sails are stopped, "Reverse Rotation" is off, and the device is powered from its USB charger

@@ -1,6 +1,6 @@
 # Specification: Windmill Bench Firmware
 
-**Version:** 1.8
+**Version:** 1.9
 **Date:** 2026-10-03
 **Status:** Approved
 **Author:** Pete Turner (with Claude)
@@ -43,7 +43,7 @@ The motorised windmill needs its own firmware on the ESP32-C3 before any part of
 
 - Soft spin-up and coast-down of the sails. Start and stop stay instant. Deferred to a later feature.
 - An on-device web control page, for the bench or for production. HA is the only remote control surface. (The WiFi setup page of the fallback access point is not a control page.)
-- A separate action for a long button press. A long press has no action of its own.
+- Button actions other than the short press and the long press, for example a double press.
 - Multi-module platform firmware. This feature covers the windmill only.
 - Migration to the main hub (`spec.md` Option B).
 - Kit assembly and `spec.md` Phases 2, 3 and 4.
@@ -124,7 +124,7 @@ In every statement, "the system" means the windmill firmware running on the ESP3
 - **Statement:** While the sails are stopped and all four lights are off, when the operator short-presses the button, the system shall turn the mill on: the sails start turning at the current Sail Speed within 1 s of the button's release, and the lights fade on as FR-41 states, the three interior lights to warm deep amber with Lamplight and "Mill Door Lamp" to a steady warm deep amber.
 
 **FR-17: Button works without the network**
-- **Statement:** While the device has no WiFi or HA connection, when the operator short-presses the button, the system shall turn the mill on or off exactly as it does when connected.
+- **Statement:** While the device has no WiFi or HA connection, when the operator short-presses or long-presses the button, the system shall act on the mill exactly as it does when connected.
 
 **FR-18: HA shows the real state**
 - **Statement:** While HA is connected, when the sails or any light changes state by any means, including the button, the system shall show the new state in HA within 5 s.
@@ -132,8 +132,14 @@ In every statement, "the system" means the windmill firmware running on the ESP3
 **FR-19: Mill Button state in HA**
 - **Statement:** The system shall show in HA, as "Mill Button", whether the button is pressed or released.
 
-**FR-40: Long press does nothing**
-- **Statement:** If the operator holds the Mill Button longer than 500 ms, then the system shall leave the sails and lights unchanged.
+**FR-40: Long press reverses the turning sails**
+- **Statement:** While the sails turn, when the operator holds the Mill Button for 1 s to 5 s and then releases it, the system shall change "Reverse Rotation" to its other state, so that the sails change direction within 1 s of the release without stopping, "Sails Turning" stays on, the lights stay as they are, and HA shows the new "Reverse Rotation" state within 5 s while HA is connected.
+
+**FR-43: Long press while stopped does nothing**
+- **Statement:** While the sails are stopped, when the operator holds the Mill Button for 1 s to 5 s and then releases it, the system shall leave the sails, "Reverse Rotation" and the four lights unchanged.
+
+**FR-44: Other presses do nothing**
+- **Statement:** If the operator holds the Mill Button for more than 500 ms but less than 1 s, or for more than 5 s, then the system shall leave the sails, "Reverse Rotation" and the four lights unchanged.
 
 ### Start-up and network
 
@@ -159,7 +165,7 @@ In every statement, "the system" means the windmill firmware running on the ESP3
 - **Statement:** When the operator sends a firmware update over the network, the system shall install it when it carries the configured update password, and reject it otherwise.
 
 **FR-27: Logs over the network**
-- **Statement:** While the operator has requested the device log over the network, when a button press turns the mill on or off, the system shall send a log message over the network that says so.
+- **Statement:** While the operator has requested the device log over the network, when a button press turns the mill on or off or reverses the sails, the system shall send a log message over the network that says so.
 
 **FR-28: No logs over USB serial**
 - **Statement:** The system shall send no firmware log messages over the USB serial port.
@@ -175,8 +181,8 @@ In every statement, "the system" means the windmill firmware running on the ESP3
 **FR-42: Change direction while stopped**
 - **Statement:** While the sails are stopped, when the operator turns "Reverse Rotation" on or off, the system shall keep the sails stopped and "Sails Turning" off, and use the new direction the next time the sails start.
 
-**FR-32: Button leaves the direction alone**
-- **Statement:** When the operator short-presses the button, the system shall act on the four mill lights and the sails only, and leave "Reverse Rotation" as it is.
+**FR-32: Short press leaves the direction alone**
+- **Statement:** When the operator short-presses the button, the system shall turn the mill on or off and leave "Reverse Rotation" as it is. Only the long press (FR-40) and the operator's own change of "Reverse Rotation" change the direction.
 
 ### Repository
 
@@ -286,10 +292,10 @@ In every statement, "the system" means the windmill firmware running on the ESP3
 - **When:** The operator stops HA for 20 minutes and watches the mill without a break for the whole 20 minutes, short-presses the button once at about minute 17 and again at about minute 18, then starts HA again.
 - **Then:** Until the first press the sails keep turning and the lights stay on; the first press turns everything off and the second turns the mill on again, judged for the mill only (the sails stop or start within 1 s of release, and the pixels finish their change within 4 s); at no point do the pixels go dark or the sails stop other than by the first press, so the device does not restart; within 5 minutes of HA starting, HA shows the device connected again and its entities match what the mill is doing.
 
-**AT-16: Mill Button state in HA and long press** (FR-19, FR-40)
-- **Given:** HA is connected and shows "Mill Button".
-- **When:** The operator holds the button down for about two seconds and then releases it.
-- **Then:** HA shows "Mill Button" as pressed while the button is held and as released after; the sails and lights do not change.
+**AT-16: Mill Button state in HA and long press** (FR-19, FR-40, FR-43, FR-44, FR-17)
+- **Given:** The motor and the button are wired as in AT-01, with a mark on the coupler. HA is connected and shows "Mill Button" and "Reverse Rotation". The mill is off and "Reverse Rotation" is off.
+- **When:** The operator holds the button for about 2 s, releases it, and watches the mill and HA for 10 s. Next the operator short-presses the button to turn the mill on, waits until the mark turns, holds the button for about 2 s, releases it, and watches for 10 s. Next the operator holds the button for about 7 s, releases it, and watches for 10 s. Last, the operator switches off the WiFi access point, holds the button for about 2 s, releases it, watches for 10 s, and switches the access point on again.
+- **Then:** HA shows "Mill Button" as pressed while the button is held and as released after each release, while HA is connected. After the first hold, with the sails stopped, the mark does not move, all four lights stay off, and "Reverse Rotation" and "Sails Turning" stay off. After the second hold, the mark changes from anticlockwise to clockwise within 1 s of the release without stopping, HA shows "Reverse Rotation" on within 5 s, "Sails Turning" stays on, and the lights do not change. After the 7 s hold, the mark keeps turning clockwise, and "Reverse Rotation", "Sails Turning" and the lights do not change. With the access point off, the hold changes the mark back to anticlockwise within 1 s of the release without stopping; when HA reconnects, it shows "Reverse Rotation" off.
 
 **AT-17: Dark and still after a power cut** (FR-20; Phase 1 "boot state")
 - **Given:** The sails turn and all four lights are on. The device is powered from its USB charger.
@@ -313,8 +319,8 @@ In every statement, "the system" means the windmill firmware running on the ESP3
 
 **AT-21: Logs over the network, none over USB serial** (FR-27, FR-28)
 - **Given:** The C3 is powered from the laptop's USB cable, with no charger connected. The device runs on the network, and the laptop has a serial monitor open on that USB connection.
-- **When:** The operator opens the device log over the network with the log command, keeps the serial monitor open, and short-presses the Mill Button.
-- **Then:** The log command connects to the device by name; within 2 minutes of the press, the network log shows a message that the mill turned on or off, and the serial monitor shows no firmware log lines. Output that the chip prints before the firmware starts (the boot ROM banner and the bootloader lines) is allowed.
+- **When:** The operator opens the device log over the network with the log command, keeps the serial monitor open, short-presses the Mill Button so that the sails turn, and then holds the Mill Button for about 2 s and releases it.
+- **Then:** The log command connects to the device by name; within 2 minutes of the short press, the network log shows a message that the mill turned on or off; within 2 minutes of the long press, it shows a message that the sails reversed; and the serial monitor shows no firmware log lines. Output that the chip prints before the firmware starts (the boot ROM banner and the bootloader lines) is allowed.
 
 **AT-24: Repository checks** (FR-34)
 - **Given:** A fresh clone of the repository in which the example secrets file has been copied to the secrets file, and no real credential is present.
@@ -355,8 +361,9 @@ In every statement, "the system" means the windmill firmware running on the ESP3
 - **Production configuration:** The one firmware configuration in the repository. There is no bench option (deferred by the user on 2026-10-03).
 - **Forward:** Anticlockwise as seen from the sail side (the front) of the mill, as on traditional English windmills. Reverse is the opposite direction, clockwise as seen from the sail side.
 - **Mill on:** The three interior lights in warm deep amber with Lamplight, "Mill Door Lamp" steady in warm deep amber, and the sails turning at the current Sail Speed.
-- **Mill Button:** The physical push button on the mill, also called "the button". HA shows whether it is pressed or released as an entity of the same name.
-- **Short press:** A press of the button held for 50 ms to 500 ms, then released.
+- **Mill Button:** The physical push button on the mill, also called "the button". HA shows whether it is pressed or released as an entity of the same name. A short press turns the mill on or off. A long press reverses the sails while they turn. Any other press does nothing.
+- **Short press:** A press of the button held for 50 ms to 500 ms, then released. It turns the mill on or off and never changes the direction.
+- **Long press:** A press of the button held for 1 s to 5 s, then released. The system acts on the release. While the sails turn, it changes "Reverse Rotation" to its other state; while they are stopped, it does nothing. A hold of more than 500 ms but less than 1 s, or of more than 5 s, is neither a short nor a long press.
 - **Fade:** A gradual change of a pixel's output between off and its set colour and brightness, of about 3 s, as in `spec.md`. The sails do not fade; they start and stop at once.
 - **Lamplight:** A flicker effect that imitates a lamp flame.
 - **Warm deep amber:** The colour in `spec.md` "Brightness", roughly 255/120/40 red/green/blue. It must read as amber, not white. Phase 4 sets the exact value by eye.
@@ -382,3 +389,4 @@ In every statement, "the system" means the windmill firmware running on the ESP3
 | 1.6 | 2026-10-03 | Pete Turner (with Claude) | Pins changed so GPIO2 (boot-strapping) is unconnected: stepper on GPIO0, 1, 3, 4, pixel data on GPIO6 (NFR-02); AT-29 no longer requires the pixel-entry capacitor unless a run shows flicker |
 | 1.7 | 2026-10-03 | Pete Turner (with Claude) | Pixel order changed for wiring (0 door lamp, 1 door glow, 2 stone floor window, 3 bin floor window); pixels found to be RGBW at the bench |
 | 1.8 | 2026-10-03 | Pete Turner (with Claude) | Scope reduced by the user: no bench option. Deferred and removed: FR-29, FR-33, FR-38, NFR-03, AT-22, AT-23, AT-27, AT-29 (listed in Explicitly Out of Scope). "Reverse Rotation" is now a permanent production switch: FR-30, FR-31, FR-32 and AT-02 rewritten, FR-42 added, FR-20 and AT-19 include it. FR-14 keeps its firmware half. FR-34 and AT-24 cover one configuration (three runs) |
+| 1.9 | 2026-10-03 | Pete Turner (with Claude) | User request 2026-10-03: a long press (1–5 s, on release) reverses the sails while they turn, through "Reverse Rotation". FR-40 rewritten; FR-43 (long press while stopped does nothing) and FR-44 (other presses do nothing) added; FR-17, FR-27 and FR-32 updated; AT-16 and AT-21 test the long press; "Mill Button", "Short press" and "Long press" glossary entries updated; the out-of-scope line about the long press reworded |

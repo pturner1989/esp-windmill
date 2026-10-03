@@ -101,9 +101,11 @@ The sails must turn anticlockwise when you look from the sail side. The substitu
 The "Reverse Rotation" switch in HA sets the sail direction. When it is off, the sails turn
 forward; when it is on, they turn the other way. Switch it while the sails turn and they reverse at
 once, and "Sails Turning" stays on. Switch it while they are stopped and it only sets the direction
-for the next start. The Mill Button never changes it. The switch is off after every restart, so the
-sails always start forward. `sails_forward_direction` (see "Forward direction") still sets which way
-is forward. Keep "Reverse Rotation" off when you check the forward direction.
+for the next start. A short press of the Mill Button never changes it. A long press (hold 1 s to 5 s,
+then release) toggles it while the sails turn, so they reverse at once; while the sails are stopped, a
+long press does nothing. The switch is off after every restart, so the sails always start forward.
+`sails_forward_direction` (see "Forward direction") still sets which way is forward. Keep
+"Reverse Rotation" off when you check the forward direction.
 
 ## HA light groups
 

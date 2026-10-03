@@ -1,6 +1,6 @@
 # Design: Windmill Bench Firmware
 
-**Version:** 1.5
+**Version:** 1.6
 **Date:** 2026-10-03
 **Status:** Approved
 **Linked Specification** `.sdd/windmill-bench-firmware/specification.md`
@@ -18,13 +18,13 @@
 - The draft config in `spec.md` "ESPHome configuration" fails validation (F1). It also has no brightness cap (F3), and its button stops working after one press (F4). This design replaces it.
 
 ### Proposed Architecture
-- **Structure.** `windmill.yaml` holds the node-level config and all substitutions. It includes three packages: `mill_sails` (stepper, speed, run switch, direction switch), `mill_lights` (strip, four partitions) and `mill_controls` (button, mill scripts). Dependencies point one way: controls → sails + lights. There is one configuration and no bench package (spec v1.8).
+- **Structure.** `windmill.yaml` holds the node-level config and all substitutions. It includes three packages: `mill_sails` (stepper, speed, run switch, direction switch), `mill_lights` (strip, four partitions) and `mill_controls` (button, mill scripts, long-press reverse). Dependencies point one way: controls → sails + lights. The controls package uses `mill_sails_turn` and `mill_sails_reverse_switch` from the sails package. There is one configuration and no bench package (spec v1.8).
 - **Endless running.** The sails never get a fixed far target. The script `mill_sails_rearm` makes two calls in one action list: `report_position(0)` (re-base), then `set_target(direction × 10,000,000)` (re-arm). It runs at turn-on, at each direction change, and from a 10-minute `interval` while the sails turn.
 - **No overflow.** At 320 steps/s the span lasts about 8.7 h, 52 times the re-arm period. Positions stay within ±10.2 million, so neither the int32 position nor `abs(target − current)` in `Stepper::calculate_speed_` can overflow.
 - **No hitch.** The ULN2003 takes its coil phase from its own counter (`current_uln_pos_`), not from `current_position`, so a re-base changes no coil output. The script runs in one main-loop callback, so the stepper `loop()` cannot run between the two calls. A reverse is the same re-arm with the opposite sign: the next step goes the other way, with no stop and no change to "Sails Turning".
 - **Stop, hold, boot.** Turn-off sets the target to `current_position`, so the next stepper `loop()` takes no step (FR-02). `sleep_when_done: false` keeps the coils energised (FR-04). Every light and switch has `restore_mode: ALWAYS_OFF`, and the direction global does not restore. The template switch runs its turn-off action at setup, and the stepper starts with position = target = 0. So no `on_boot` block is needed (FR-20).
 - **Fades with effects.** ESPHome applies the default transition only when a call sets no effect (`light_call.cpp`). So `mill_on` turns the lights on without an effect, which gives the 3 s fade. It then starts Lamplight on each interior light that is still on. An HA turn-on that requests Lamplight starts with no fade, which FR-41 (spec v1.5) allows.
-- **Direction.** "Reverse Rotation" is a permanent production switch in the sails package (spec v1.8). It sets the `mill_sails_reverse` global. While the sails turn, it re-arms them, so they reverse at once. While they are stopped, it only sets the direction for the next start.
+- **Direction.** "Reverse Rotation" is a permanent production switch in the sails package (spec v1.8). It sets the `mill_sails_reverse` global. While the sails turn, it re-arms them, so they reverse at once. While they are stopped, it only sets the direction for the next start. A long press of the Mill Button (1–5 s) toggles this switch while the sails turn (spec v1.9), so HA shows the change and the switch's own actions re-arm the sails. Only the switch sets the global.
 
 ### Technology Decisions
 - **Firmware:** ESPHome 2026.9.1 YAML on `esp-idf`, board `esp32-c3-devkitm-1`. Only built-in components. No lambda is longer than two lines (handbook).
@@ -35,7 +35,7 @@
 ### Quality Attributes
 - **NFR-01:** `color_correct: [60%, 60%, 60%, 60%]` is on the strip and on each partition. Every pixel write goes through a partition: from HA, from Lamplight and from `mill_on`. The strip is `internal`, and no action targets it (no `addressable_set`).
 - **NFR-02:** `ALWAYS_OFF` is on all five lights and both switches, and only `Sail Speed` restores a value. Speed stays in 60–320 by three means: the number bounds; rounding, which maps [60,320] onto multiples of 10 inside [60,320]; and, at turn-on, the same half-up rounding followed by a clamp to 60–320, where NaN gives 170. Pins exist only as substitutions in `windmill.yaml`: GPIO0, GPIO1, GPIO3 and GPIO4 for the stepper (GPIO2 unconnected), GPIO6 for pixel data and GPIO5 for the button.
-- **Loop timing (single core):** The stepper takes at most one step per `loop()`, so blocking work in a loop pass can delay a step and lower the real speed. Each Lamplight effect returns early until its `update_interval` (50 ms) has passed, so it writes at the same rate whatever the loop rate. The strip's `max_refresh_rate` (20 ms) also limits frames to 50 per second. Each frame blocks for about 0.1–0.2 ms (`rmt_tx_wait_all_done` and a 50 µs delay), so Lamplight blocks for at most about 1% of loop time. Toggles write no flash, because no switch or global restores. `flash_write_interval` (60 s) batches speed saves. The re-arm is O(1) every 10 minutes. The only log lines are one INFO line per button toggle. All objects are allocated at setup.
+- **Loop timing (single core):** The stepper takes at most one step per `loop()`, so blocking work in a loop pass can delay a step and lower the real speed. Each Lamplight effect returns early until its `update_interval` (50 ms) has passed, so it writes at the same rate whatever the loop rate. The strip's `max_refresh_rate` (20 ms) also limits frames to 50 per second. Each frame blocks for about 0.1–0.2 ms (`rmt_tx_wait_all_done` and a 50 µs delay), so Lamplight blocks for at most about 1% of loop time. Toggles write no flash, because no switch or global restores. `flash_write_interval` (60 s) batches speed saves. The re-arm is O(1) every 10 minutes. The only log lines are one INFO line per button toggle and one per long-press reverse. All objects are allocated at setup.
 - **FR-14:** Steady lights with no effect send no frames. When frames are sent, the RMT hardware times the bits, so loop timing cannot change them. The one remaining firmware risk is a delayed RMT refill (see Risks); otherwise flicker comes from the hardware: the capacitors, the 330R resistor and the routing.
 
 ---
@@ -46,10 +46,10 @@
 - **Sails Turning** (switch `mill_sails_turn`, optimistic, boots off). On: sets the speed from Sail Speed, then re-arms. Turning it on while on only re-arms. Off: stops the sails at once. It stays on in either direction.
 - **Sail Speed** (number `mill_sail_speed`): 60–320 steps/s, step 10, default 170, restored across restarts. Out of range: ESPHome rejects the value, logs a warning and keeps the state. In range but not a multiple of 10: the firmware rounds half up, and HA only sees the rounded value. A change applies at once, in either direction.
 - **Mill Door Glow** (pixel 1), **Mill Stone Floor Window** (2), **Mill Bin Floor Window** (3): RGBW lights with brightness and the "Lamplight" effect. They fade over 3 s by default and boot off. **Mill Door Lamp** (0) is the same, without effects.
-- **Reverse Rotation** (switch `mill_sails_reverse_switch`, optimistic, boots off): sets `mill_sails_reverse`, and re-arms if the sails turn. While the sails are stopped, it only sets the direction for the next start. The button never changes it.
-- **Mill Button** (binary sensor `mill_button`): on while pressed. The raw strip `mill_pixels` is `internal` and not in HA.
+- **Reverse Rotation** (switch `mill_sails_reverse_switch`, optimistic, boots off): sets `mill_sails_reverse`, and re-arms if the sails turn. While the sails are stopped, it only sets the direction for the next start. A short press never changes it; a long press toggles it while the sails turn.
+- **Mill Button** (binary sensor `mill_button`): on while pressed. Acts on release: a press of 50–500 ms toggles the whole mill; a press of 1–5 s toggles "Reverse Rotation" while "Sails Turning" is on, and does nothing while the sails are stopped. Any other press does nothing. The raw strip `mill_pixels` is `internal` and not in HA.
 
-**Scripts (firmware-internal, no parameters):** `mill_sails_rearm` re-bases and re-arms. `mill_on` and `mill_off` turn the whole mill on or off. `mill_toggle` chooses on or off and logs the choice.
+**Scripts (firmware-internal, no parameters):** `mill_sails_rearm` re-bases and re-arms. `mill_on` and `mill_off` turn the whole mill on or off. `mill_toggle` chooses on or off and logs the choice. `mill_reverse_from_button` toggles "Reverse Rotation" while the sails turn and logs the reversal.
 
 **Substitutions (set in `windmill.yaml`; the Option B hub changes only these):**
 - `name`, `friendly_name`; `sails_pin_a`–`sails_pin_d` (GPIO0, GPIO1, GPIO3, GPIO4; GPIO2 stays unconnected because it is a boot-strapping pin), `pixel_pin` (GPIO6), `button_pin` (GPIO5).
@@ -137,21 +137,24 @@ None. The `spec.md` pointer to the firmware files is deferred (see Feasibility R
 - **Rationale:** FR-10: one pixel per light, with GRBW order. FR-11: each partition is its own `LightState`, and its Lamplight draws its own random values. Lamplight changes the pixel only once per `update_interval`, so it looks the same at any loop rate, and `max_refresh_rate` is a second limit on frames (see Loop timing). The effect writes through the partition's view, so the partition's 60% cap applies to every flicker value (NFR-01). The interval and intensity are Phase 4 starting values. The intensity must stay above 0%, because the effect takes a random value modulo the intensity. FR-12: the door lamp has no effects. FR-13 and NFR-01: the cap is on every partition and on the strip. FR-14: steady lights send no frames. FR-20: `ALWAYS_OFF`. FR-41: the 3 s default fade.
 
 #### Controls package — `packages/mill_controls.yaml`
-- **Responsibility:** Turns the whole mill on and off from the button, with no network needed.
+- **Responsibility:** Turns the whole mill on and off from the button, and reverses the turning sails with a long press, with no network needed.
 - **Consumers:** The operator, through the button.
 - **Location:** `packages/mill_controls.yaml`
-- **Kind:** ESPHome package (binary sensor and three scripts).
+- **Kind:** ESPHome package (binary sensor and four scripts).
 - **Details:**
   ```
   binary_sensor: gpio "Mill Button" id mill_button, ${button_pin} input pullup inverted, delayed_on_off 20ms,
-    on_click {min 50ms, max 500ms} → script.execute mill_toggle          # no other click handler
+    on_click {min 50ms, max 500ms} → script.execute mill_toggle
+             {min 1s,   max 5s}    → script.execute mill_reverse_from_button   # no other handler
+  mill_reverse_from_button: if switch.is_on mill_sails_turn → switch.toggle mill_sails_reverse_switch;
+               logger.log level INFO tag mill.controls "Button: sails reversed"     # stopped: nothing
   mill_toggle: sails on or any of 4 lights on → mill_off; logger.log level INFO tag mill.controls "Button: mill off"
                else → mill_on; logger.log level INFO tag mill.controls "Button: mill on"
   mill_off: script.stop mill_on; switch.turn_off mill_sails_turn; light.turn_off × 4 (3 s fade, stops effect)
   mill_on (mode restart): switch.turn_on mill_sails_turn; interior × 3 at 100%, lamp at 85%, rgb 100/76/52 (gives 255/120/40 after gamma 2.8);
            delay 3s; each interior light still on → light.turn_on effect Lamplight
   ```
-- **Rationale:** FR-15 and FR-16: the toggle checks all five outputs, which removes F4. FR-17: the scripts use only firmware entities, so they work without a network. FR-18: every change publishes to HA at once. FR-19: the button state shows in HA. FR-40: no long-press handler exists. FR-27: both `logger.log` calls set level INFO, because the default is DEBUG, and both use the tag `mill.controls`. FR-32: the scripts never name `mill_sails_reverse` or `mill_sails_reverse_switch`. FR-41: lights fade first, then the effect starts. The colour values are Phase 4 starting values.
+- **Rationale:** FR-15 and FR-16: the toggle checks all five outputs, which removes F4. FR-17: the scripts use only firmware entities, so they work without a network. FR-18: every change publishes to HA at once. FR-19: the button state shows in HA. FR-40: the second click range (1–5 s, on release) toggles the "Reverse Rotation" switch, not the global, so HA sees the change and the switch's own actions re-arm the sails with no stop. FR-43: the condition on `mill_sails_turn` makes a long press while stopped do nothing. FR-44: no handler covers 500 ms–1 s or more than 5 s. FR-27: all three `logger.log` calls set level INFO, because the default is DEBUG, and all use the tag `mill.controls`. FR-32: `mill_toggle`, `mill_on` and `mill_off` never name the direction switch, and the package never names the `mill_sails_reverse` global. FR-41: lights fade first, then the effect starts. The colour values are Phase 4 starting values.
 
 #### Example secrets — `secrets.example.yaml`
 - **Responsibility:** Holds placeholders that validate and compile.
@@ -266,5 +269,6 @@ None. The `spec.md` pointer to the firmware files is deferred (see Feasibility R
 | 1.3 | 2026-10-03 | Pete Turner (with Claude) | Pixels are SK6812 RGBW (GRBW order), found at the bench; four-value colour correction. |
 | 1.4 | 2026-10-03 | Pete Turner (with Claude) | Pixel order changed for wiring: 0 door lamp, 1 door glow, 2 stone floor window, 3 bin floor window. |
 | 1.5 | 2026-10-03 | Pete Turner (with Claude) | Scope reduced by the user (spec v1.8): no bench package, include line, derived check file or one-line rule; no pixel addressing test; the check script runs three checks on `windmill.yaml`; the `spec.md` and handbook updates are deferred. "Reverse Rotation" and `mill_sails_reverse` move to the sails package as production entities. |
+| 1.6 | 2026-10-03 | Pete Turner (with Claude) | Long press (user request 2026-10-03, spec v1.9): a second `on_click` range (1–5 s) runs `mill_reverse_from_button`, which toggles "Reverse Rotation" while the sails turn and logs one INFO line. The controls package now uses `mill_sails_reverse_switch`; it still never sets the global. |
 
 ---

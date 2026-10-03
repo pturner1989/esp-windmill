@@ -368,7 +368,8 @@ test_sails_reverse() {
   found=$(awk -F '\t' '$1 != "switch/mill_sails_reverse_switch" &&
     (($3 == "globals.set" && $4 ~ /(^|;)id=mill_sails_reverse(;|$)/) ||
      ($3 ~ /^switch\.(turn_on|turn_off|toggle)$/ && $4 ~ /(^|;)id=mill_sails_reverse_switch(;|$)/))' <<< "$calls")
-  expect_same "nothing but Reverse Rotation changes the direction" "" "$found"
+  expect_same "only Reverse Rotation and the Mill Button long press change the direction" \
+    $'script/mill_reverse_from_button\tthen/if/then\tswitch.toggle\tid=mill_sails_reverse_switch' "$found"
 }
 
 # long_lambdas FILE... prints the first line of each lambda in FILE that spans
@@ -820,7 +821,8 @@ test_controls_button() {
   expect_setting "controls package takes the button pin from its substitution" "$package" \
     "^ +number: '?\\\$\\{button_pin\\}'?$"
   header=$(awk '!/^#/ { exit } 1' <<< "$package")
-  for word in button_pin mill_button mill_toggle mill_on mill_off; do
+  for word in button_pin mill_button mill_toggle mill_on mill_off mill_reverse_from_button \
+    mill_sails_reverse_switch; do
     grep -qw -- "$word" <<< "$header" || missing+=" $word"
   done
   if [[ -n $header && -z $missing ]]; then
@@ -846,13 +848,14 @@ test_controls_button() {
   on_keys=$( (grep -E '^    on_[a-z_]+:' <<< "$button" || true) | tr -d ' ' | tr '\n' ' ')
   expect_same "Mill Button has a click handler and no other handler" "on_click: " "$on_keys"
   clicks=$(item_key "$button" on_click)
-  if [[ $(grep -c '^      - ' <<< "$clicks") -eq 1 ]]; then
-    pass "Mill Button has exactly one click handler"
+  if [[ $(grep -c '^      - ' <<< "$clicks") -eq 2 ]]; then
+    pass "Mill Button has exactly two click ranges"
   else
-    fail "Mill Button has exactly one click handler" "on_click: $clicks"
+    fail "Mill Button has exactly two click ranges" "on_click: $clicks"
   fi
-  expect_setting "Mill Button click is 50-500 ms and runs the toggle" "$(flat "$clicks")" \
-    '^ ?- min_length: 50ms max_length: 500ms then: - script\.execute: id: mill_toggle ?$'
+  expect_setting "Mill Button runs the toggle on a 50-500 ms click and the reverse on a 1-5 s click" \
+    "$(flat "$clicks")" \
+    '^ ?- min_length: 50ms max_length: 500ms then: - script\.execute: id: mill_toggle - min_length: 1s max_length: 5s then: - script\.execute: id: mill_reverse_from_button ?$'
 }
 
 test_controls_scripts() {
@@ -869,12 +872,19 @@ test_controls_scripts() {
   expect_setting "toggle turns the mill on when everything is off" \
     "$(calls_of script/mill_toggle then/if/else | tr '\n' '|')" \
     '^script\.execute id=mill_on\|logger\.log format=[^|;]*mill on;'
+  expect_same "long-press reverse acts only while Sails Turning is on" "switch.is_on id=mill_sails_turn" \
+    "$(calls_of script/mill_reverse_from_button then/if/condition)"
+  expect_setting "long-press reverse toggles Reverse Rotation, then logs the reversal" \
+    "$(calls_of script/mill_reverse_from_button then/if/then | tr '\n' '|')" \
+    '^switch\.toggle id=mill_sails_reverse_switch\|logger\.log format=[^|;]*sails reversed;[^|]*\|$'
+  expect_same "long-press reverse does nothing else" $'switch.is_on\nswitch.toggle\nlogger.log' \
+    "$(calls_of script/mill_reverse_from_button | cut -d ' ' -f 1)"
   logs=$(grep -P '\tlogger\.log\t' <<< "$controls_calls" || true)
   bad=$(grep -vE ';level=INFO;tag=mill\.controls(;|$)' <<< "$logs" || true)
-  if [[ $(grep -c . <<< "$logs") -eq 2 && -z $bad ]]; then
-    pass "both log calls use level INFO and tag mill.controls"
+  if [[ $(grep -c . <<< "$logs") -eq 3 && -z $bad ]]; then
+    pass "the three log calls use level INFO and tag mill.controls"
   else
-    fail "both log calls use level INFO and tag mill.controls" "log calls: $logs"
+    fail "the three log calls use level INFO and tag mill.controls" "log calls: $logs"
   fi
   expected=$'script.stop id=mill_on\nswitch.turn_off id=mill_sails_turn'
   for id in $partitions; do expected+=$'\n'"light.turn_off id=$id;state=false"; done
@@ -910,10 +920,9 @@ test_controls_boundaries() {
     return
   fi
   text=$(sed -E 's/(^|[[:space:]])#.*$//' "$package")
-  found=$(grep -n 'mill_sails_reverse' "$package" || true)
+  # The long press may name the Reverse Rotation switch, but never the global.
+  found=$(grep -nw 'mill_sails_reverse' <<< "$text" || true)
   expect_same "controls package does not name the direction global" "" "$found"
-  found=$(grep -nE 'mill_sails_reverse_switch|Reverse Rotation' "$package" || true)
-  expect_same "controls package does not name the Reverse Rotation switch" "" "$found"
   found=$(grep -n 'homeassistant' <<< "$text" || true)
   expect_same "controls package makes no call to Home Assistant" "" "$found"
   found=$( (strip_writes "$package"; grep -n 'mill_pixels' <<< "$text") || true)
