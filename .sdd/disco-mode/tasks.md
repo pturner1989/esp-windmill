@@ -60,7 +60,7 @@ AC-1 to AC-5 and AC-8 are agent-checkable; AC-6 and AC-7 need the operator after
 
 ### Task 2: Firing order per bar and colours per phrase
 
-- **Status:** Done (agent checks); device ACs pending user
+- **Status:** Done
 - **Blocked by:** Task 1
 
 **What to build:**
@@ -95,7 +95,7 @@ AC-1 to AC-3 are agent-checkable; AC-4 needs the operator and is AT-06 by eye at
 
 ### Task 3: Disco Mode on and off from HA
 
-- **Status:** Done (agent checks); device ACs pending user
+- **Status:** Done
 - **Blocked by:** Task 1, Task 2
 
 **What to build:**
@@ -150,7 +150,7 @@ AC-1 to AC-3 are agent-checkable; AC-4 to AC-8 need the operator. The lamplight 
 
 ### Task 4: Disco Mode follows changes to the lights
 
-- **Status:** Done (agent checks); device ACs pending user
+- **Status:** Done
 - **Blocked by:** Task 3
 
 **What to build:**
