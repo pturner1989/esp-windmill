@@ -2,12 +2,21 @@
 # Needs substitutions: sails_pin_a, sails_pin_b, sails_pin_c, sails_pin_d
 #   (ULN2003 IN1 to IN4) and sails_forward_direction ("1" or "-1").
 # Exposes ids: mill_sails (stepper), mill_sails_turn (switch "Sails Turning"),
-#   mill_sail_speed (number "Sail Speed"), mill_sails_rearm (script),
-#   mill_sails_reverse (global, true while reversed) and
-#   mill_sails_reverse_switch (switch "Reverse Rotation").
+#   mill_sail_speed (number "Sail Speed", in rpm), mill_sails_reverse (global,
+#   true while reversed), mill_sails_reverse_switch (switch "Reverse
+#   Rotation").
+# The lambdas call mill_ramp::rpm_ok(), round_rpm(), goal(), max_speed() and
+#   aim() from include/mill_ramp.h, and tick_now() and shared() from
+#   include/mill_ramp_esphome.h, which holds the ramp (the speed now). The
+#   ramp starts stopped at every boot.
+# The sails always ramp. Every 20 ms the tick moves the speed toward the goal
+# that the two switches and "Sail Speed" set, and drives the stepper at it.
+# A start or a stop takes about 3 s at any speed. A speed change ramps at the
+# same rate. A reversal slows to a stop, then speeds up the other way.
+# "Sails Turning" off means the sails are stopping or stopped.
 
-# The sail direction. It starts forward at every boot.
 globals:
+  # The sail direction. It starts forward at every boot.
   - id: mill_sails_reverse
     type: bool
     initial_value: "false"
@@ -21,33 +30,26 @@ stepper:
     pin_c: ${sails_pin_c}
     pin_d: ${sails_pin_d}
     step_mode: FULL_STEP
-    max_speed: 170 steps/s
+    # The tick sets the speed. The tick ramps, so the stepper's own ramp is
+    # off: it drops at once to a lower max_speed, and its stop needs the speed
+    # now, which it does not expose.
+    max_speed: 1 steps/s
+    acceleration: inf
+    deceleration: inf
     # Keep the coils energised so the stopped sails hold their place.
     sleep_when_done: false
 
 switch:
+  # The tick reads the state, so the switch needs no action.
   - platform: template
     name: Sails Turning
     id: mill_sails_turn
     optimistic: true
     restore_mode: ALWAYS_OFF
-    turn_on_action:
-      # Round half up to a multiple of 10 and keep it in 60-320. An unknown
-      # speed gives 170.
-      - stepper.set_speed:
-          id: mill_sails
-          speed: !lambda |-
-            float s = id(mill_sail_speed).state;
-            return std::isnan(s) ? 170.0f : std::clamp(std::floor((s + 5) / 10) * 10, 60.0f, 320.0f);
-      - script.execute: mill_sails_rearm
-    # A target equal to the current position stops the sails on the next step.
-    turn_off_action:
-      - stepper.set_target:
-          id: mill_sails
-          target: !lambda "return id(mill_sails).current_position;"
 
-  # Sets the direction. While the sails turn, the re-arm reverses them at once.
-  # While they are stopped, it only sets the direction for the next start.
+  # Sets the direction. While the sails turn, the tick slows them to a stop,
+  # then turns them the other way. While they are stopped, it only sets the
+  # direction for the next start.
   - platform: template
     name: Reverse Rotation
     id: mill_sails_reverse_switch
@@ -57,69 +59,64 @@ switch:
       - globals.set:
           id: mill_sails_reverse
           value: "true"
-      - if:
-          condition:
-            switch.is_on: mill_sails_turn
-          then:
-            - script.execute: mill_sails_rearm
     turn_off_action:
       - globals.set:
           id: mill_sails_reverse
           value: "false"
-      - if:
-          condition:
-            switch.is_on: mill_sails_turn
-          then:
-            - script.execute: mill_sails_rearm
 
 number:
   - platform: template
     name: Sail Speed
     id: mill_sail_speed
-    min_value: 60
-    max_value: 320
-    step: 10
-    initial_value: 170
-    unit_of_measurement: steps/s
+    min_value: 1
+    max_value: 9
+    step: 0.5
+    initial_value: 5
+    unit_of_measurement: rpm
     optimistic: false
     restore_value: true
-    # ESPHome rejects a value outside 60-320 before this action runs.
+    # ESPHome rejects a value outside 1-9 before this action runs. The tick
+    # reads the state, so a change ramps the turning sails to the new speed.
     set_action:
       - if:
           condition:
-            lambda: "return std::floor((x + 5) / 10) * 10 == x;"
+            lambda: "return mill_ramp::round_rpm(x) == x;"
           then:
             - lambda: "id(mill_sail_speed).publish_state(x);"
-            - stepper.set_speed:
-                id: mill_sails
-                speed: !lambda "return x;"
           # Set the rounded value one loop pass later. The number saves the raw
           # value after this action, so the rounded value is saved last.
           else:
             - delay: 0ms
             - number.set:
                 id: mill_sail_speed
-                value: !lambda "return std::floor((x + 5) / 10) * 10;"
+                value: !lambda "return mill_ramp::round_rpm(x);"
+    # A restored value outside 1-9 rpm (older firmware saved steps/s) or NaN
+    # becomes 5 rpm, saved, so HA shows the speed the tick uses.
+    on_value:
+      - if:
+          condition:
+            lambda: "return !mill_ramp::rpm_ok(x);"
+          then:
+            - number.set:
+                id: mill_sail_speed
+                value: 5
 
-script:
-  # Re-base to 0, then aim far ahead in the chosen direction. Both calls run
-  # in one loop pass, so no step falls between them.
-  - id: mill_sails_rearm
+interval:
+  # The sails tick. It moves the speed toward the goal, then re-bases the
+  # position to 0 and aims 1000 steps ahead in the direction of the speed, or
+  # at 0 to stop and hold. The calls run in one loop pass, so no step falls
+  # between them, and the stepper still takes at most one step per pass.
+  - interval: 20ms
     then:
+      - lambda: |-
+          mill_ramp::tick_now(mill_ramp::goal(id(mill_sails_turn).state, id(mill_sails_reverse),
+                                              id(mill_sail_speed).state));
+      - stepper.set_speed:
+          id: mill_sails
+          speed: !lambda "return mill_ramp::max_speed(mill_ramp::shared());"
       - stepper.report_position:
           id: mill_sails
           position: 0
       - stepper.set_target:
           id: mill_sails
-          target: !lambda "return ${sails_forward_direction} * (id(mill_sails_reverse) ? -1 : 1) * 10000000;"
-
-# Re-arm every 10 minutes while the sails turn, so they never reach their
-# target. At 320 steps/s one span lasts about 8.7 h.
-interval:
-  - interval: 10min
-    then:
-      - if:
-          condition:
-            switch.is_on: mill_sails_turn
-          then:
-            - script.execute: mill_sails_rearm
+          target: !lambda "return ${sails_forward_direction} * mill_ramp::aim(mill_ramp::shared());"

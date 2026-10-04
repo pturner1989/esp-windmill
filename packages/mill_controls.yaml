@@ -78,8 +78,9 @@ script:
                 tag: mill.controls
 
   # Reverse the sails while they turn. The Reverse Rotation switch does the
-  # reversal, so HA shows the change and the switch re-arms the sails. While
-  # the sails are stopped, do nothing.
+  # reversal, so HA shows the change, and the sails tick slows the sails to a
+  # stop, then turns them the other way. While the sails are stopped, do
+  # nothing.
   - id: mill_reverse_from_button
     then:
       - if:
@@ -92,8 +93,8 @@ script:
                 level: INFO
                 tag: mill.controls
 
-  # Stop the sails at once. Each light fades off over its 3 s default and
-  # stops its effect. Stop any pending lamplight first, so no light comes back
+  # Stop the sails: they spin down over about 3 s. Each light fades off over
+  # its 3 s default and stops its effect. Stop any pending lamplight first, so no light comes back
   # on with Lamplight.
   - id: mill_off
     then:
