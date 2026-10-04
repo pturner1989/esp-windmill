@@ -1,7 +1,7 @@
 # Disco mode: feature request notes
 
 **Date:** 2026-10-03
-**Status:** Spec approved (specification.md v1.3). Next: `/sddv2:plan`.
+**Status:** Implemented (spec v1.6, design v1.2, six tasks). Closed by the user 2026-10-04. Taps were removed from scope.
 
 ## Request
 
