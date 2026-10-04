@@ -89,8 +89,8 @@ footer { color: var(--muted); font-size: 0.9rem; border-top: 1px solid var(--rul
     <button class="toggle" id="t-sails" type="button" aria-pressed="true"><span class="dot"></span>Sails Turning</button>
     <div class="speed">
       <label for="speed">Sail Speed</label>
-      <input id="speed" type="range" min="60" max="320" step="10" value="170">
-      <span class="readout" id="readout">170 steps/s</span>
+      <input id="speed" type="range" min="1" max="9" step="0.5" value="5">
+      <span class="readout" id="readout">5 rpm</span>
     </div>
     <button class="toggle" id="t-lights" type="button" aria-pressed="true"><span class="dot"></span>Mill Lights</button>
     <button class="toggle" id="t-disco" type="button" aria-pressed="false"><span class="dot"></span>Disco Mode</button>
@@ -125,7 +125,7 @@ footer { color: var(--muted); font-size: 0.9rem; border-top: 1px solid var(--rul
   </section>
 
   <dl class="facts">
-    <div><dt>Default speed</dt><dd>170 <small>steps/s</small></dd></div>
+    <div><dt>Default speed</dt><dd>5 <small>rpm</small></dd></div>
     <div><dt>Sail rotation</dt><dd>≈ 5 <small>rpm, 12 s a turn</small></dd></div>
     <div><dt>Lamp colour</dt><dd>255 / 120 / 40</dd></div>
     <div><dt>Brightness cap</dt><dd>60 <small>%</small></dd></div>
@@ -148,7 +148,7 @@ footer { color: var(--muted); font-size: 0.9rem; border-top: 1px solid var(--rul
   var bctx = body.getContext('2d');
 
   var state = {
-    sails: !reduce, speed: 170, lightsTarget: 1, lightLevel: 1, labels: false,
+    sails: !reduce, speed: 5 * 2048 / 60, lightsTarget: 1, lightLevel: 1, labels: false,
     angle: 0.35, flicker: [1, 1, 1], flickerT: 0,
     disco: false, bpm: 120, rate: 1, taps: [], discoClock: 0, beat: -1, env: 1, envs: [1, 1, 1, 1], pixBeat: [-1, -1, -1, -1], bar: -1, order: [0, 1, 2, 3],
     discoCols: [[255, 140, 60], [255, 140, 60], [255, 140, 60], [255, 170, 90]]
@@ -537,7 +537,7 @@ footer { color: var(--muted); font-size: 0.9rem; border-top: 1px solid var(--rul
   }
   function showSpeed() {
     var v = state.speed, rpm = v * 60 / 2048;
-    readout.textContent = v + ' steps/s · ' + rpm.toFixed(1) + ' rpm · a turn every ' + (60 / rpm).toFixed(1) + ' s';
+    readout.textContent = rpm.toFixed(1) + ' rpm · ' + Math.round(v) + ' steps/s · a turn every ' + (60 / rpm).toFixed(1) + ' s';
   }
   tSails.addEventListener('click', function () { state.sails = !state.sails; syncButtons(); });
   tLights.addEventListener('click', function () { state.lightsTarget = state.lightsTarget > 0 ? 0 : 1; syncButtons(); });
@@ -598,7 +598,7 @@ footer { color: var(--muted); font-size: 0.9rem; border-top: 1px solid var(--rul
   }
   showBpm = showBpmFull;
   syncRate(); showBpm();
-  speed.addEventListener('input', function () { state.speed = Number(speed.value); showSpeed(); });
+  speed.addEventListener('input', function () { state.speed = Number(speed.value) * 2048 / 60; showSpeed(); });
 
   syncButtons(); showSpeed();
   window.addEventListener('resize', resize);

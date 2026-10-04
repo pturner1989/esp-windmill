@@ -101,9 +101,12 @@ test_full_pass_with_stubs() {
   local dir expected name="check builds and runs the header tests, then lints, validates and compiles"
   dir=$(new_repo with-secrets)
   run_check "$dir" esphome yamllint g++
-  expected="g++ -std=c++17 -Wall -Wextra -Werror -Iinclude tests/mill_disco_test.cpp"
-  expected+=$' -o .esphome/host-tests/mill_disco_test\n.esphome/host-tests/mill_disco_test'
-  expected+=$'\nyamllint -s .\nesphome config windmill.yaml\nesphome compile windmill.yaml'
+  expected=""
+  for test in mill_disco_test mill_ramp_test; do
+    expected+="g++ -std=c++17 -Wall -Wextra -Werror -Iinclude tests/$test.cpp -o .esphome/host-tests/$test"
+    expected+=$'\n'".esphome/host-tests/$test"$'\n'
+  done
+  expected+=$'yamllint -s .\nesphome config windmill.yaml\nesphome compile windmill.yaml'
   if [[ $status -ne 0 ]]; then
     fail "$name" "exit status $status. Output: $output"
   elif [[ $calls != "$expected" ]]; then
@@ -262,8 +265,8 @@ test_node_settings() {
   expect_setting "access point starts after the default 90 s" "$wifi" '^    ap_timeout: 90s$'
   expect_same "node leaves the access point timeout at its default" "" \
     "$(grep -n 'ap_timeout' "$repo/windmill.yaml" || true)"
-  expect_setting "node includes the two disco headers" "$(flat "$(section esphome)")" \
-    ' includes: - [^ ]*/include/mill_disco\.h - [^ ]*/include/mill_disco_esphome\.h '
+  expect_setting "node includes the two disco headers and the two ramp headers" "$(flat "$(section esphome)")" \
+    ' includes: - [^ ]*/include/mill_disco\.h - [^ ]*/include/mill_disco_esphome\.h - [^ ]*/include/mill_ramp\.h - [^ ]*/include/mill_ramp_esphome\.h '
 }
 
 test_sails_settings() {
@@ -289,9 +292,13 @@ test_sails_settings() {
   done
   expect_setting "sails stepper is a ULN2003" "$stepper" '^  - platform: uln2003$'
   expect_setting "sails stepper does not sleep when done" "$stepper" '^    sleep_when_done: false$'
-  expect_setting "sails stepper turns at 170 steps/s" "$stepper" '^    max_speed: 170(\.0)?( steps/s)?$'
+  # The tick ramps the speed, so the stepper's own ramp is off (inf).
+  expect_setting "sails stepper has no acceleration ramp of its own" "$stepper" '^    acceleration: 1000000(\.0)?$'
+  expect_setting "sails stepper has no deceleration ramp of its own" "$stepper" '^    deceleration: 1000000(\.0)?$'
   expect_setting "Sails Turning is optimistic" "$turn" '^    optimistic: true$'
   expect_setting "Sails Turning boots off" "$turn" '^    restore_mode: ALWAYS_OFF$'
+  expect_same "Sails Turning has no action: the tick reads its state" "" \
+    "$(grep -E '^    (turn_on_action|turn_off_action):' <<< "$turn" || true)"
 }
 
 test_sail_speed_settings() {
@@ -299,54 +306,50 @@ test_sail_speed_settings() {
   local speed
   speed=$(list_item "$(section number)" "^    name: '?Sail Speed'?$")
   expect_setting "Sail Speed has id mill_sail_speed" "$speed" '^    id: mill_sail_speed$'
-  expect_setting "Sail Speed minimum is 60" "$speed" '^    min_value: 60(\.0)?$'
-  expect_setting "Sail Speed maximum is 320" "$speed" '^    max_value: 320(\.0)?$'
-  expect_setting "Sail Speed step is 10" "$speed" '^    step: 10(\.0)?$'
-  expect_setting "Sail Speed starts at 170" "$speed" '^    initial_value: 170(\.0)?$'
-  expect_setting "Sail Speed is in steps/s" "$speed" "^    unit_of_measurement: '?steps/s'?$"
+  expect_setting "Sail Speed minimum is 1" "$speed" '^    min_value: 1(\.0)?$'
+  expect_setting "Sail Speed maximum is 9" "$speed" '^    max_value: 9(\.0)?$'
+  expect_setting "Sail Speed step is 0.5" "$speed" '^    step: 0\.5$'
+  expect_setting "Sail Speed starts at 5" "$speed" '^    initial_value: 5(\.0)?$'
+  expect_setting "Sail Speed is in rpm" "$speed" "^    unit_of_measurement: '?rpm'?$"
   expect_setting "Sail Speed restores its value" "$speed" '^    restore_value: true$'
   expect_setting "Sail Speed is not optimistic" "$speed" '^    optimistic: false$'
 }
 
 test_sail_speed_rounding() {
-  local package speed turn set_action turn_on round_x round_any
-  package=$(cat "$repo/packages/mill_sails.yaml" 2> /dev/null || true)
-  speed=$(list_item "$(section number "$package")" "^    name: '?Sail Speed'?$")
-  turn=$(list_item "$(section switch "$package")" "^    name: '?Sails Turning'?$")
-  set_action=$(flat "$(item_key "$speed" set_action)")
-  turn_on=$(flat "$(item_key "$turn" turn_on_action)")
-  round_x='floor\(\(x \+ 5\) / 10\) \* 10'
-  round_any='floor\(\([a-z_]+ \+ 5\) / 10\) \* 10'
-  expect_setting "Sail Speed set action rounds half up to a multiple of 10" "$set_action" "$round_x"
-  expect_setting "Sail Speed set action sets the rounded value one loop pass later" "$set_action" \
-    "- delay: 0ms - number\.set: id: mill_sail_speed value: [^-]*$round_x"
-  expect_setting "Sail Speed set action passes the speed to the stepper" "$set_action" \
-    '- stepper\.set_speed: id: mill_sails '
-  expect_setting "Sails Turning turn-on rounds Sail Speed half up" "$turn_on" "$round_any"
-  expect_setting "Sails Turning turn-on clamps the speed to 60-320" "$turn_on" \
-    'clamp\(.+, 60(\.0f?)?, 320(\.0f?)?\)'
-  expect_setting "Sails Turning turn-on uses 170 for an unknown speed" "$turn_on" \
-    'isnan\([a-z_]+\) \? 170(\.0f?)? :'
-  expect_setting "Sails Turning turn-on reads Sail Speed" "$turn_on" 'id\(mill_sail_speed\)\.state'
-  expect_setting "Sails Turning sets the speed, then re-arms" "$turn_on" \
-    '^ ?- stepper\.set_speed: id: mill_sails .*- script\.execute: mill_sails_rearm'
+  [[ $config_status -ne 0 ]] && return
+  local expected
+  expected="set_action/then/if/condition lambda return mill_ramp::round_rpm(x) == x;"
+  expected+=$'\n'"set_action/then/if/then lambda id(mill_sail_speed).publish_state(x);"
+  expected+=$'\n'"set_action/then/if/else delay 0ms"
+  expected+=$'\n'"set_action/then/if/else number.set id=mill_sail_speed;value=return mill_ramp::round_rpm(x);"
+  expect_same "Sail Speed shows an on-step value, and sets an off-step value rounded one loop pass later" \
+    "$expected" "$(awk -F '\t' '$1 == "number/mill_sail_speed" && $2 ~ /^set_action/ { print $2 " " $3 " " $4 }' <<< "$config_calls")"
+  expected="on_value/then/if/condition lambda return !mill_ramp::rpm_ok(x);"
+  expected+=$'\n'"on_value/then/if/then number.set id=mill_sail_speed;value=5.0"
+  expect_same "a restored Sail Speed outside 1-9 rpm or NaN becomes 5 rpm" \
+    "$expected" "$(awk -F '\t' '$1 == "number/mill_sail_speed" && $2 ~ /^on_value/ { print $2 " " $3 " " $4 }' <<< "$config_calls")"
 }
 
-test_sails_rearm() {
-  local package rearm repeat direction resolved
+test_sails_tick() {
+  local package tick direction expected found
   package=$(cat "$repo/packages/mill_sails.yaml" 2> /dev/null || true)
-  rearm=$(flat "$(item_key "$(list_item "$(section script "$package")" '^  - id: mill_sails_rearm$')" then)")
-  expect_setting "re-arm script re-bases to 0, then aims 10,000,000 steps in the chosen direction" "$rearm" \
-    '^ ?- stepper\.report_position: id: mill_sails position: 0 - stepper\.set_target: id: mill_sails target: !lambda "return \$\{sails_forward_direction\} \* \(id\(mill_sails_reverse\) \? -1 : 1\) \* 10000000;" ?$'
+  found=$(grep -n 'current_position' "$repo"/packages/*.yaml || true)
+  expect_same "no stop jumps to the current position" "" "$found"
+  tick=$(flat "$(list_item "$(section interval "$package")" '^  - interval: 20ms$')")
+  expect_setting "the tick aims in the forward direction from its substitution" "$tick" \
+    'target: !lambda "return \$\{sails_forward_direction\} \* mill_ramp::aim\(mill_ramp::shared\(\)\);"'
   [[ $config_status -ne 0 ]] && return
   direction=$(sed -En "s/^  sails_forward_direction: '?(-?1)'?$/\1/p" <<< "$(section substitutions)")
-  resolved=$(flat "$(list_item "$(section script)" '^  - id: mill_sails_rearm$')")
-  expect_setting "re-arm target resolves to the forward direction times the reverse sign times 10,000,000" \
-    "$resolved" "target: !lambda \|- return ${direction:-unset} \* \(id\(mill_sails_reverse\) \? -1 : 1\) \* 10000000;"
-  repeat=$(flat "$(list_item "$(section interval)" '^  - interval: 10min$')")
-  expect_setting "an interval runs every 10 minutes" "$repeat" '^ ?- interval: 10min '
-  expect_setting "the interval re-arms the sails only while Sails Turning is on" "$repeat" \
-    '^ ?- interval: 10min then: - if: condition: switch\.is_on: id: mill_sails_turn then: - script\.execute: id: mill_sails_rearm( startup_delay: [0-9a-z]+)? ?$'
+  tick=$(list_item "$(section interval)" '^  - interval: 20ms$')
+  expected="then"$'\t'"lambda"$'\t'"mill_ramp::tick_now(mill_ramp::goal(id(mill_sails_turn).state, id(mill_sails_reverse), id(mill_sail_speed).state));"
+  expected+=$'\n'"then"$'\t'"stepper.set_speed"$'\t'"id=mill_sails;speed=return mill_ramp::max_speed(mill_ramp::shared());"
+  expected+=$'\n'"then"$'\t'"stepper.report_position"$'\t'"id=mill_sails;position=0"
+  expected+=$'\n'"then"$'\t'"stepper.set_target"$'\t'"id=mill_sails;target=return ${direction:-unset} * mill_ramp::aim(mill_ramp::shared());"
+  expect_same "every 20 ms the tick ramps toward the goal of the switches and Sail Speed, then re-bases and aims the stepper" \
+    "$expected" "$(action_calls - <<< "interval:"$'\n'"$tick" | cut -f 2-)"
+  found=$(awk -F '\t' '$3 ~ /^stepper\./ { print $1 " " $3 }' <<< "$config_calls")
+  expect_same "only the tick drives the stepper" \
+    $'interval/- stepper.set_speed\ninterval/- stepper.report_position\ninterval/- stepper.set_target' "$found"
 }
 
 test_sails_reverse() {
@@ -375,10 +378,8 @@ test_sails_reverse() {
   # The validated config puts each action list under "then".
   for action in turn_on_action:true turn_off_action:false; do
     expected+="${expected:+$'\n'}${action%:*}/then globals.set id=mill_sails_reverse;value=${action#*:}"
-    expected+=$'\n'"${action%:*}/then/if/condition switch.is_on id=mill_sails_turn"
-    expected+=$'\n'"${action%:*}/then/if/then script.execute id=mill_sails_rearm"
   done
-  expect_same "Reverse Rotation sets the direction global, then re-arms only while Sails Turning is on" \
+  expect_same "Reverse Rotation only sets the direction global: the tick does the reversal" \
     "$expected" "$(awk -F '\t' '$1 == "switch/mill_sails_reverse_switch" { print $2 " " $3 " " $4 }' <<< "$calls")"
   found=$(awk -F '\t' '$1 != "switch/mill_sails_reverse_switch" &&
     (($3 == "globals.set" && $4 ~ /(^|;)id=mill_sails_reverse(;|$)/) ||
@@ -1075,7 +1076,7 @@ test_node_settings
 test_sails_settings
 test_sail_speed_settings
 test_sail_speed_rounding
-test_sails_rearm
+test_sails_tick
 test_sails_reverse
 test_lambdas_are_short
 test_packages_hold_no_node_config

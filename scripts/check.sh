@@ -24,8 +24,10 @@ fi
 
 echo "check: header tests"
 mkdir -p .esphome/host-tests
-g++ -std=c++17 -Wall -Wextra -Werror -Iinclude tests/mill_disco_test.cpp -o .esphome/host-tests/mill_disco_test
-.esphome/host-tests/mill_disco_test
+for test in mill_disco_test mill_ramp_test; do
+  g++ -std=c++17 -Wall -Wextra -Werror -Iinclude "tests/$test.cpp" -o ".esphome/host-tests/$test"
+  ".esphome/host-tests/$test"
+done
 echo "check: yamllint -s ."
 yamllint -s .
 echo "check: esphome config windmill.yaml"

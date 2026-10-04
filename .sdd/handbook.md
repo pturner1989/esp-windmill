@@ -36,15 +36,18 @@ When logic outgrows one level, move it to the next:
 ```
 windmill.yaml              # Node config: board, wifi, api, ota, logger. Includes the packages.
 packages/
-  mill_sails.yaml          # Stepper, speed number, run switch
+  mill_sails.yaml          # Stepper, speed number, run switch, the 20 ms ramp tick
   mill_lights.yaml         # Pixel strip and partition lights
   mill_controls.yaml       # Button and scripts
   mill_disco.yaml          # Disco Mode switch and its scripts
 include/
   mill_disco.h             # Disco maths: pure functions, host-tested
   mill_disco_esphome.h     # Disco glue: shared state, millis(), pixel write
+  mill_ramp.h              # Sails ramp maths: rpm to steps/s, the speed ramp. Host-tested
+  mill_ramp_esphome.h      # Sails ramp glue: the shared ramp, millis()
 tests/
   mill_disco_test.cpp      # Header tests for include/mill_disco.h
+  mill_ramp_test.cpp       # Header tests for include/mill_ramp.h
 scripts/
   check.sh                 # Pre-commit checks: header tests, lint, config, compile
   test_check.sh            # Tests for check.sh, the node settings and the packages
@@ -86,7 +89,8 @@ Every change must keep these true. A review must check them.
    A partition light applies its own correction, not the strip's, so set it on the strip and on every partition.
    Disco writes only through the partition lights' own effects (`it[0]` in the "Disco" effect),
    never to the strip `mill_pixels` and never with `addressable_set`.
-3. **Sail speed stays in 60–320 steps/s.** Set the bounds on the number entity. Do not allow a path that sets speed outside this range.
+3. **Sail speed stays in 1–9 rpm (about 34–307 steps/s).** Set the bounds on the number entity. Do not allow a path that sets speed outside this range.
+   The ramp passes through lower speeds on its way to and from a stop; that is allowed.
 4. **Pin allocation matches `spec.md`.** GPIO0, GPIO1, GPIO3, GPIO4 drive stepper IN1–IN4; GPIO6 pixel data; GPIO5 button. GPIO2 stays unconnected (boot-strapping pin).
 5. **Serial logging stays off on the C3** (`logger: baud_rate: 0`) in the shipped config.
 6. **The two mill connectors are the module boundary** (the motor's 5-pin JST-XH and a 4-pin JST for 5V, GND, data and button). Firmware must not assume anything above them except four coils, one data line and the button.
@@ -122,9 +126,10 @@ There is no unit-test framework for ESPHome YAML. Testing has four levels:
 - To validate without real credentials, copy `secrets.example.yaml` to `secrets.yaml`.
 - A task that changes behaviour must state which bench-checklist items verify it.
   Write its acceptance criteria as observable behaviour (for example "sails stop within one step when the button is held for 1s").
-- Header tests use no framework. `tests/mill_disco_test.cpp` has local `CHECK` and `CHECK_NEAR` macros and exits 1
-  on any failed check. `scripts/check.sh` builds it with `g++ -std=c++17 -Wall -Wextra -Werror -Iinclude`
-  into `.esphome/host-tests/` and runs it first. Test only the pure header. The glue header needs ESPHome.
+- Header tests use no framework. `tests/mill_disco_test.cpp` and `tests/mill_ramp_test.cpp` have local `CHECK` and
+  `CHECK_NEAR` macros and exit 1 on any failed check. `scripts/check.sh` builds each with
+  `g++ -std=c++17 -Wall -Wextra -Werror -Iinclude` into `.esphome/host-tests/` and runs them first.
+  Test only the pure headers. The glue headers need ESPHome.
 - `scripts/test_check.sh` checks the check script, the node settings and the packages. Run it with the venv active.
 - If an external component under `components/` is written, it needs host-side tests. Use the same approach.
 
@@ -134,7 +139,7 @@ There is no unit-test framework for ESPHome YAML. Testing has four levels:
 - Use Conventional Commits: `type(scope): summary`.
   - Types: `feat`, `fix`, `refactor`, `docs`, `chore`, `test`.
   - Scopes: `sails`, `lights`, `controls`, `disco`, `node`, `spec`, `tooling`.
-  - Example: `feat(sails): add speed number with 60-320 steps/s bounds`.
+  - Example: `feat(sails): add speed number with 1-9 rpm bounds`.
 - Put one logical change in each commit. Never commit `secrets.yaml`, `.esphome/`, or build output.
 
 ## Pre-commit validation
@@ -144,8 +149,9 @@ Run these before every commit. All must pass.
 `scripts/check.sh` runs the first four.
 
 ```bash
-g++ -std=c++17 -Wall -Wextra -Werror -Iinclude tests/mill_disco_test.cpp -o .esphome/host-tests/mill_disco_test \
-  && .esphome/host-tests/mill_disco_test
+for t in mill_disco_test mill_ramp_test; do
+  g++ -std=c++17 -Wall -Wextra -Werror -Iinclude tests/$t.cpp -o .esphome/host-tests/$t && .esphome/host-tests/$t
+done
 yamllint -s .
 esphome config windmill.yaml
 esphome compile windmill.yaml   # when firmware YAML changed

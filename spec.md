@@ -119,16 +119,20 @@ The 28BYJ-48 is 28mm across and 19mm deep. With the cap interior around 55mm tha
 
 ### Speed
 
-In full-step mode the 28BYJ-48 gives 2048 steps per output revolution. Useful settings:
+In full-step mode the 28BYJ-48 gives 2048 steps per output revolution. "Sail Speed" is in RPM: 1 to 9 in steps of 0.5, default 5 (decided 2026-10-04). The firmware converts it: steps/s = RPM × 2048 ÷ 60.
 
-| Steps/sec | RPM | Reads as |
+| RPM | Steps/sec | Reads as |
 | --- | --- | --- |
-| 100 | 2.9 | Very light breeze, almost too slow |
-| 170 | 5.0 | Good default |
-| 240 | 7.0 | Brisk |
-| 400+ | 11+ | Torque drops, risk of missed steps |
+| 1 | 34 | Slowest setting, barely turning |
+| 3 | 102 | Very light breeze, almost too slow |
+| 5 | 171 | Good default |
+| 7 | 239 | Brisk |
+| 9 | 307 | Fastest setting |
+| 11+ | 400+ | Outside the range: torque drops, risk of missed steps |
 
-Start at 170 and adjust by eye. Scale motion always looks best slower than you expect — the sails should look heavy.
+Start at 5 and adjust by eye. Scale motion always looks best slower than you expect — the sails should look heavy.
+
+The sails never jump to a speed (decided 2026-10-04). A start spins up from stopped to the set speed over about 3 s, and a stop spins down over about 3 s, at any speed. A speed change while the sails turn ramps to the new speed at the same rate. A reversal while they turn slows them to a stop, then speeds them up the other way. While they are stopped, a reversal only sets the direction for the next start.
 
 ### Balancing
 
@@ -306,6 +310,9 @@ wifi:
 captive_portal:
 
 # ---------- Sails ----------
+# A first sketch. The firmware (packages/mill_sails.yaml) ramps every start,
+# stop, speed change and reversal over about 3 s from a 20 ms tick, and holds
+# the speed in RPM.
 stepper:
   - platform: uln2003
     id: sails
@@ -327,17 +334,17 @@ number:
   - platform: template
     name: "Sail Speed"
     id: sail_speed
-    min_value: 60
-    max_value: 320
-    step: 10
-    initial_value: 170
-    unit_of_measurement: "steps/s"
+    min_value: 1
+    max_value: 9
+    step: 0.5
+    initial_value: 5
+    unit_of_measurement: "rpm"
     optimistic: true
     restore_value: true
     on_value:
       - stepper.set_speed:
           id: sails
-          speed: !lambda "return x;"
+          speed: !lambda "return x * 2048 / 60;"
 
 switch:
   - platform: template
@@ -349,7 +356,7 @@ switch:
       - lambda: 'id(sails_running) = true;'
       - stepper.set_speed:
           id: sails
-          speed: !lambda "return id(sail_speed).state;"
+          speed: !lambda "return id(sail_speed).state * 2048 / 60;"
       - stepper.set_target:
           id: sails
           target: 2000000000
@@ -460,11 +467,11 @@ script:
 ### Notes
 
 - `logger: baud_rate: 0` disables serial logging. On the C3 the USB serial shares pins with normal operation and leaving it on can cause odd behaviour once unplugged.
-- The sails run by setting the target to 2 billion steps. At 170 steps/s that lasts about four months of continuous running, so in practice it never reaches it. Turning off sets the target to the current position, which stops it immediately without a deceleration ramp.
+- In the sketch, the sails run by setting the target to 2 billion steps, and turning off sets the target to the current position, which stops them at once. The firmware instead ramps: every 20 ms a tick moves the speed toward the goal that "Sails Turning", "Reverse Rotation" and "Sail Speed" set, re-bases the position to 0 and aims 1000 steps ahead in the direction of the speed (or at 0 to stop and hold). The stepper's own acceleration stays off, because it drops at once to a lower speed. The ramp maths is in `include/mill_ramp.h`, with host tests.
 - `internal: true` on the pixel strip hides the raw 4-pixel entity from Home Assistant so only the three meaningful groups appear.
 - Both lights are off at boot and the sails are stopped. After a power cut you want a dark, still mill, not a motor running unattended.
-- **The Mill Button** (`packages/mill_controls.yaml`). A short press (50–500 ms) turns the whole mill on or off. A long press (hold 1–5 s, then release) reverses the turning sails, and does nothing while they are stopped. Other presses do nothing.
-- **The Mill Button in disco.** A short press turns the mill off as it does outside disco: the sails stop, all four lights fade off, and "Disco Mode" turns off. A long press leaves disco: all four lights take the lamplight look within 4 s, and the sails keep their speed and direction, with no reversal. Other presses do nothing. The button never starts disco. The button needs no WiFi or HA, so it acts the same with no network, and one short press always stops the whole mill.
+- **The Mill Button** (`packages/mill_controls.yaml`). A short press (50–500 ms) turns the whole mill on or off. A long press (hold 1–5 s, then release) reverses the turning sails: they slow to a stop, then speed up the other way. It does nothing while they are stopped. Other presses do nothing.
+- **The Mill Button in disco.** A short press turns the mill off as it does outside disco: the sails spin down over about 3 s, all four lights fade off, and "Disco Mode" turns off. A long press leaves disco: all four lights take the lamplight look within 4 s, and the sails keep their speed and direction, with no reversal. Other presses do nothing. The button never starts disco. The button needs no WiFi or HA, so it acts the same with no network, and one short press always stops the whole mill (the sails take about 3 s to spin down).
 
 ## Mounting
 
@@ -511,7 +518,10 @@ The governing rule: **everything electrical must work on the bench before anythi
 
 - [ ] Flash the C3, confirm WiFi, API and the fallback AP
 - [ ] Wire the ULN2003 and a bare 28BYJ-48, confirm rotation both directions
-- [ ] Sweep the speed number from 60 to 320, find where it starts missing steps
+- [ ] Sweep "Sail Speed" from 1 to 9 rpm, find where it starts missing steps
+- [ ] Start and stop the sails from HA and with the button, at 1, 5 and 9 rpm: each start spins up and each stop spins down over about 3 s, with no jump or jolt
+- [ ] With the sails turning, change "Sail Speed" up and down: the sails speed up or slow down smoothly, with no jump
+- [ ] With the sails turning, switch "Reverse Rotation", then long-press the button: each time the sails slow to a stop, then speed up the other way, and HA shows "Reverse Rotation" in its new state. With the sails stopped, switch it: nothing turns
 - [ ] Wire four pixels on the bench, confirm all four address correctly
 - [ ] Run the stepper and pixels together for an hour, watch for pixel flicker
 - [ ] Confirm the 5V rail stays above 4.5V with both running
@@ -527,9 +537,9 @@ Do these on the bench once the button and all four pixels work. "Disco Mode", "D
 - [ ] Each flash starts bright and fades to a dim glow, not to dark; the firing order changes every bar and the colours change every 16 beats
 - [ ] Change "Disco BPM": the chase speeds up or slows down at once, with no jump. At 90 BPM, "Disco Rate" 2× doubles the flashes, and above 90 BPM HA refuses 2× and shows 1×
 - [ ] With the sails turning, turn "Disco Mode" on and off: the sails keep their speed and direction, and after off all four lights show the lamplight look within 4 s
-- [ ] Time 5 sail turns at 170 steps/s with and without disco, then at the highest safe speed: at each speed the two times agree within 2%
+- [ ] Time 5 sail turns at 5 rpm with and without disco, then at the highest safe speed: at each speed the two times agree within 2%
 - [ ] In disco, hold the button about 0.7 s, then about 6 s: nothing changes. Hold it about 2 s: the lamplight look returns within 4 s and the sails do not reverse
-- [ ] In disco, short-press the button: the sails stop within 1 s and all four pixels are dark within 4 s, and HA shows "Disco Mode" off
+- [ ] In disco, short-press the button: the sails spin down and stop within about 3 s, all four pixels are dark within 4 s, and HA shows "Disco Mode" off
 - [ ] Repeat the two button checks with the WiFi access point off: the chase keeps running and the button acts the same
 - [ ] Cut the power in disco: the mill comes back dark and stopped, with "Disco Mode" off
 

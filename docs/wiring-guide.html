@@ -325,7 +325,7 @@ footer { color: var(--muted); font-size: 0.9rem; border-top: 1px solid var(--rul
       <li><label><input type="checkbox" id="a4-2"><span class="n"></span><span class="t">Use two <strong>diagonally opposite</strong> legs. Diagonal legs are always switched, whichever way the button sits.</span></label></li>
       <li><label><input type="checkbox" id="a4-3"><span class="n"></span><span class="t">Wire one leg → <code>GPIO5</code> and the other → the <span class="wire c-gnd">− rail</span>. No resistor is needed.</span></label></li>
     </ol>
-    <p class="check-line"><strong>Ready when:</strong> a short press turns the whole mill on, and the next short press turns it off. While the sails turn, holding it for 1–5 s and letting go reverses them.</p>
+    <p class="check-line"><strong>Ready when:</strong> a short press turns the whole mill on, and the next short press turns it off. While the sails turn, holding it for 1–5 s and letting go reverses them: they slow to a stop, then speed up the other way. The sails always spin up and down over about 3 s.</p>
     <p>In disco, a short press turns the mill off and ends disco. Holding it for 1–5 s and letting go leaves disco to the lamplight look, and the sails do not reverse. Other presses do nothing, and the button never starts disco. The button needs no WiFi or Home Assistant, so it acts the same with no network.</p>
   </div>
 
@@ -346,9 +346,9 @@ footer { color: var(--muted); font-size: 0.9rem; border-top: 1px solid var(--rul
       <li><label><input type="checkbox" id="a6-2"><span class="n"></span><span class="t">Each flash starts bright and fades to a dim glow, not to dark. The firing order changes every bar, and the colours change every 16 beats.</span></label></li>
       <li><label><input type="checkbox" id="a6-3"><span class="n"></span><span class="t">Change "Disco BPM": the chase speeds up or slows down at once, with no jump. At 90 BPM, "Disco Rate" 2× doubles the flashes. Above 90 BPM, Home Assistant refuses 2× and shows 1×.</span></label></li>
       <li><label><input type="checkbox" id="a6-4"><span class="n"></span><span class="t">With the sails turning, turn "Disco Mode" on and off. The sails keep their speed and direction. After off, all four lights show the lamplight look within 4 s.</span></label></li>
-      <li><label><input type="checkbox" id="a6-5"><span class="n"></span><span class="t">Time 5 sail turns at 170 steps/s with and without disco, then at the highest safe speed. At each speed the two times agree within 2%.</span></label></li>
+      <li><label><input type="checkbox" id="a6-5"><span class="n"></span><span class="t">Time 5 sail turns at 5 rpm with and without disco, then at the highest safe speed. At each speed the two times agree within 2%.</span></label></li>
       <li><label><input type="checkbox" id="a6-6"><span class="n"></span><span class="t">In disco, hold the button about 0.7 s, then about 6 s: nothing changes. Hold it about 2 s: the lamplight look returns within 4 s, and the sails do not reverse.</span></label></li>
-      <li><label><input type="checkbox" id="a6-7"><span class="n"></span><span class="t">In disco, short-press the button. The sails stop within 1 s, all four pixels are dark within 4 s, and Home Assistant shows "Disco Mode" off.</span></label></li>
+      <li><label><input type="checkbox" id="a6-7"><span class="n"></span><span class="t">In disco, short-press the button. The sails spin down and stop within about 3 s, all four pixels are dark within 4 s, and Home Assistant shows "Disco Mode" off.</span></label></li>
       <li><label><input type="checkbox" id="a6-8"><span class="n"></span><span class="t">Switch the WiFi access point off and repeat the two button checks. The chase keeps running, and the button acts the same.</span></label></li>
       <li><label><input type="checkbox" id="a6-9"><span class="n"></span><span class="t">Cut the power in disco. The mill comes back dark and stopped, with "Disco Mode" off.</span></label></li>
     </ol>

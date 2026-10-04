@@ -96,13 +96,22 @@ The sails must turn anticlockwise when you look from the sail side. The substitu
    `windmill.yaml` (or back to `"1"` if it is already `"-1"`). Then update over the network
    (see "First USB flash and OTA").
 
+## Sail speed
+
+"Sail Speed" in HA sets how fast the sails turn, in rpm: 1 to 9 in steps of 0.5. It starts at 5 rpm
+and keeps its value across a restart, but a restart never starts the sails. A value between two steps
+is rounded, and HA shows the rounded value. The sails never jump to a speed: "Sails Turning" on spins
+them up over about 3 s, off (or a short press of the Mill Button) spins them down over about 3 s, and a
+new "Sail Speed" while they turn ramps them to it at the same rate. "Sails Turning" shows off while
+the sails spin down.
+
 ## Sail direction
 
 The "Reverse Rotation" switch in HA sets the sail direction. When it is off, the sails turn
-forward; when it is on, they turn the other way. Switch it while the sails turn and they reverse at
-once, and "Sails Turning" stays on. Switch it while they are stopped and it only sets the direction
+forward; when it is on, they turn the other way. Switch it while the sails turn and they slow to a
+stop, then speed up the other way, and "Sails Turning" stays on. Switch it while they are stopped and it only sets the direction
 for the next start. A short press of the Mill Button never changes it. A long press (hold 1 s to 5 s,
-then release) toggles it while the sails turn, so they reverse at once; while the sails are stopped, a
+then release) toggles it while the sails turn, so they slow to a stop and reverse; while the sails are stopped, a
 long press does nothing. While "Disco Mode" is on, a long press leaves disco instead (see "Disco"). The switch is off after every restart, so the sails always start forward.
 `sails_forward_direction` (see "Forward direction") still sets which way is forward. Keep
 "Reverse Rotation" off when you check the forward direction.
@@ -133,7 +142,7 @@ before disco. Disco never touches the sails, so turning sails keep turning and s
 stopped. The switch is off after every restart.
 
 The Mill Button works in disco, also with no WiFi or HA. A short press (50 ms to 500 ms) turns the
-mill off as it does outside disco: the sails stop, all four lights fade off, and "Disco Mode" turns
+mill off as it does outside disco: the sails spin down, all four lights fade off, and "Disco Mode" turns
 off. A long press (hold 1 s to 5 s, then release) leaves disco: all four lights show the lamplight look
 within 4 s, and the sails keep their speed and direction, with no reversal. Other presses do nothing.
 The button never starts disco. Outside disco, the button acts as before.
