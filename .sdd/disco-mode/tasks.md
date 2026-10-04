@@ -190,7 +190,7 @@ AC-1 is agent-checkable; AC-2 to AC-5 need the operator, and AC-4 needs the "Mil
 
 ### Task 5: Tempo and rate from HA, with the rate guard
 
-- **Status:** Done (agent checks); device ACs pending user
+- **Status:** Done
 - **Blocked by:** Task 2, Task 3, Task 4
 
 **What to build:**
@@ -246,7 +246,7 @@ AC-1 to AC-4 are agent-checkable; AC-5 to AC-8 need the operator. AC-8 checks dr
 
 ### Task 6: The Mill Button in disco
 
-- **Status:** Done (agent checks); device ACs pending user
+- **Status:** Done
 - **Blocked by:** Task 5
 
 **What to build:**

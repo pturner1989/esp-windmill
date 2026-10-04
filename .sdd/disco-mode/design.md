@@ -2,7 +2,7 @@
 
 **Version:** 1.2
 **Date:** 2026-10-03
-**Status:** Draft
+**Status:** Implemented
 **Linked Specification** `.sdd/disco-mode/specification.md` (v1.6)
 
 ---
