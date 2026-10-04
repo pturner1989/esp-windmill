@@ -1,0 +1,157 @@
+# Disco: the "Disco Mode" switch starts and ends the "Disco" chase on all four
+# lights. It never names the sails, so turning sails keep turning at the same
+# speed and direction, and stopped sails stay stopped.
+# Exposes ids: mill_disco_mode (switch "Disco Mode"), mill_disco_bpm (number
+#   "Disco BPM"), mill_disco_rate (select "Disco Rate"),
+#   mill_disco_start (script), mill_disco_leave (script, takes a light mask).
+# Uses ids: mill_door_glow, mill_stone_window, mill_bin_window, mill_door_lamp
+#   and mill_lamplight (script) from the lights package. The lambdas call
+#   mill_disco::start_now(), set_bpm_now(), set_rate_now(), any_left(),
+#   any_disco() and disco_mask() from include/mill_disco_esphome.h.
+# The switch is not optimistic: only the two scripts publish its state, so HA
+# sees only the true state. It is off after every restart. Its boot-time
+# turn-off runs the leave, which does nothing while the switch is off.
+# A check every 250 ms keeps the switch true to the lights: a light that picks
+# "Disco" starts disco on all four, and a light that is turned off or picks
+# another effect ends it.
+# "Disco BPM" and "Disco Rate" start at 120 and 1x after every restart, as the
+# disco clock does, and keep no value. They are not optimistic: each set action
+# passes the value to the glue and publishes the accepted values. The rate
+# guard allows 2x only at 90 BPM or below, so every step lasts 1/3 s or longer.
+
+number:
+  - platform: template
+    id: mill_disco_bpm
+    name: Disco BPM
+    min_value: 60
+    max_value: 180
+    step: 0.1
+    initial_value: 120
+    optimistic: false
+    restore_value: false
+    # A tempo above 90 BPM drops 2x to 1x, so "Disco Rate" shows 1x too.
+    set_action:
+      - lambda: |-
+          if (mill_disco::set_bpm_now(x)) id(mill_disco_rate).publish_state("1×");
+          id(mill_disco_bpm).publish_state(mill_disco::shared().clock.bpm);
+
+select:
+  - platform: template
+    id: mill_disco_rate
+    name: Disco Rate
+    options:
+      - "½×"
+      - "1×"
+      - "2×"
+    initial_option: "1×"
+    optimistic: false
+    restore_value: false
+    # 2x above 90 BPM is refused, and the select shows 1x.
+    set_action:
+      - lambda: "id(mill_disco_rate).publish_state(mill_disco::set_rate_now(x));"
+
+switch:
+  - platform: template
+    id: mill_disco_mode
+    name: Disco Mode
+    optimistic: false
+    restore_mode: ALWAYS_OFF
+    turn_on_action:
+      - script.execute: mill_disco_start
+    turn_off_action:
+      - script.execute:
+          id: mill_disco_leave
+          mask: 15
+
+script:
+  # Beat 0 now, then all four lights on at full brightness with "Disco". A
+  # call that sets an effect skips the fade, so the chase starts at once. Stop
+  # any pending lamplight first, or it would end the chase.
+  - id: mill_disco_start
+    then:
+      - if:
+          condition:
+            switch.is_off: mill_disco_mode
+          then:
+            - script.stop: mill_lamplight
+            - lambda: "mill_disco::start_now();"
+            - switch.template.publish:
+                id: mill_disco_mode
+                state: true
+            - light.turn_on:
+                id: mill_door_glow
+                brightness: 100%
+                effect: Disco
+            - light.turn_on:
+                id: mill_stone_window
+                brightness: 100%
+                effect: Disco
+            - light.turn_on:
+                id: mill_bin_window
+                brightness: 100%
+                effect: Disco
+            - light.turn_on:
+                id: mill_door_lamp
+                brightness: 100%
+                effect: Disco
+            - logger.log:
+                format: "Disco on"
+                level: INFO
+                tag: mill.disco
+
+  # The lights in `mask` (bit n is pixel n) take the lamplight look, also a
+  # light that was off before disco. The switch turns off first, so the next
+  # check does not leave again. The lamplight script restarts, so a pending
+  # lamplight ends.
+  - id: mill_disco_leave
+    parameters:
+      mask: int
+    then:
+      - if:
+          condition:
+            switch.is_on: mill_disco_mode
+          then:
+            - switch.template.publish:
+                id: mill_disco_mode
+                state: false
+            - script.execute:
+                id: mill_lamplight
+                mask: !lambda "return mask;"
+            - logger.log:
+                format: "Disco off"
+                level: INFO
+                tag: mill.disco
+
+interval:
+  # Keep "Disco Mode" true to the lights. Each check reads the target state
+  # that HA shows. The mask of the lights still on with "Disco" is taken
+  # before the leave changes any light, so the light the operator changed
+  # keeps what the operator asked, and only the others take the lamplight
+  # look. After a start, all four lights are on with "Disco". After a leave,
+  # no light has "Disco": the lamplight fade uses effect None, then Lamplight.
+  # So the next check finds nothing to do, also during the 3 s fade.
+  - interval: 250ms
+    then:
+      - if:
+          condition:
+            switch.is_on: mill_disco_mode
+          then:
+            - if:
+                condition:
+                  lambda: |-
+                    return mill_disco::any_left({id(mill_door_lamp), id(mill_door_glow),
+                                                 id(mill_stone_window), id(mill_bin_window)});
+                then:
+                  - script.execute:
+                      id: mill_disco_leave
+                      mask: !lambda |-
+                        return mill_disco::disco_mask({id(mill_door_lamp), id(mill_door_glow),
+                                                       id(mill_stone_window), id(mill_bin_window)});
+          else:
+            - if:
+                condition:
+                  lambda: |-
+                    return mill_disco::any_disco({id(mill_door_lamp), id(mill_door_glow),
+                                                  id(mill_stone_window), id(mill_bin_window)});
+                then:
+                  - script.execute: mill_disco_start

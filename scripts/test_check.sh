@@ -25,12 +25,20 @@ for dir in "${path_dirs[@]}"; do
 done
 
 # make_stubs DIR TOOL... writes a stub for each TOOL that logs its arguments.
+# The g++ stub also writes a stub program at its -o path that logs its path.
 make_stubs() {
   local dir=$1 tool
   shift
   mkdir -p "$dir"
   for tool in "$@"; do
     printf '#!/usr/bin/env bash\necho "%s $*" >> "%s"\n' "$tool" "$work/calls" > "$dir/$tool"
+    if [[ $tool == g++ ]]; then
+      cat >> "$dir/$tool" << STUB
+out=\$(sed -n 's/.* -o \([^ ]*\).*/\1/p' <<< "\$*")
+printf '#!/usr/bin/env bash\necho "\$0" >> "%s"\n' "$work/calls" > "\$out"
+chmod +x "\$out"
+STUB
+    fi
     chmod +x "$dir/$tool"
   done
 }
@@ -43,7 +51,7 @@ new_repo() {
   mkdir -p "$dir/scripts"
   cp -p "$repo/scripts/check.sh" "$dir/scripts/"
   cp "$repo/windmill.yaml" "$repo/secrets.example.yaml" "$repo/.gitignore" "$dir/"
-  cp -r "$repo/packages" "$dir/"
+  cp -r "$repo/packages" "$repo/include" "$repo/tests" "$dir/"
   git -C "$dir" init -q
   if [[ ${1:-} == with-secrets ]]; then
     cp "$dir/secrets.example.yaml" "$dir/secrets.yaml"
@@ -90,18 +98,20 @@ test_tool_versions() {
 }
 
 test_full_pass_with_stubs() {
-  local dir expected
+  local dir expected name="check builds and runs the header tests, then lints, validates and compiles"
   dir=$(new_repo with-secrets)
-  run_check "$dir" esphome yamllint
-  expected=$'yamllint -s .\nesphome config windmill.yaml\nesphome compile windmill.yaml'
+  run_check "$dir" esphome yamllint g++
+  expected="g++ -std=c++17 -Wall -Wextra -Werror -Iinclude tests/mill_disco_test.cpp"
+  expected+=$' -o .esphome/host-tests/mill_disco_test\n.esphome/host-tests/mill_disco_test'
+  expected+=$'\nyamllint -s .\nesphome config windmill.yaml\nesphome compile windmill.yaml'
   if [[ $status -ne 0 ]]; then
-    fail "check runs lint, config and compile" "exit status $status. Output: $output"
+    fail "$name" "exit status $status. Output: $output"
   elif [[ $calls != "$expected" ]]; then
-    fail "check runs lint, config and compile" "calls were: $calls"
+    fail "$name" "calls were: $calls"
   elif grep -qi "bench" <<< "$output"; then
-    fail "check runs lint, config and compile" "output mentions the dropped bench option: $output"
+    fail "$name" "output mentions the dropped bench option: $output"
   else
-    pass "check runs lint, config and compile"
+    pass "$name"
   fi
 }
 
@@ -210,8 +220,9 @@ pin_number() {
     on && /^    [^ ]/ { exit }' <<< "$1"
 }
 
-# load_config validates windmill.yaml and keeps the output in $config. It
-# uses the example secrets when secrets.yaml is missing.
+# load_config validates windmill.yaml, keeps the output in $config and its calls
+# (see action_calls) in $config_calls. It uses the example secrets when
+# secrets.yaml is missing.
 load_config() {
   local secrets_backup=""
   if [[ ! -f "$repo/secrets.yaml" ]]; then
@@ -226,6 +237,8 @@ load_config() {
   [[ $secrets_backup == none ]] && rm -f "$repo/secrets.yaml"
   if [[ $config_status -ne 0 ]]; then
     fail "node config validates" "esphome config exited $config_status"
+  else
+    config_calls=$(action_calls - <<< "$config")
   fi
 }
 
@@ -249,6 +262,8 @@ test_node_settings() {
   expect_setting "access point starts after the default 90 s" "$wifi" '^    ap_timeout: 90s$'
   expect_same "node leaves the access point timeout at its default" "" \
     "$(grep -n 'ap_timeout' "$repo/windmill.yaml" || true)"
+  expect_setting "node includes the two disco headers" "$(flat "$(section esphome)")" \
+    ' includes: - [^ ]*/include/mill_disco\.h - [^ ]*/include/mill_disco_esphome\.h '
 }
 
 test_sails_settings() {
@@ -446,13 +461,13 @@ YAML
 }
 
 # package_violations DIR prints each line of DIR/*.yaml, with comments
-# removed, that holds a node-level key or a literal GPIO number.
+# removed, that holds a node-level key (includes too) or a literal GPIO number.
 package_violations() {
   local file
   for file in "$1"/*.yaml; do
     [[ -f $file ]] || continue
     sed -E 's/(^|[[:space:]])#.*$//' "$file" |
-      grep -nE '^[[:space:]]*(- +)?(esphome|esp32|wifi|api|ota|logger):|GPIO[0-9]|\b(pin[a-z_]*|number): *[0-9]' |
+      grep -nE '^[[:space:]]*(- +)?(esphome|esp32|wifi|api|ota|logger|includes):|GPIO[0-9]|\b(pin[a-z_]*|number): *[0-9]' |
       sed "s|^|${file##*/}:|" || true
   done
 }
@@ -460,9 +475,10 @@ package_violations() {
 test_packages_hold_no_node_config() {
   local fixture violations
   fixture=$(mktemp -d "$work/packages.XXXX")
-  printf 'wifi:\n  ssid: x\nstepper:\n  - pin_a: GPIO0  # GPIO9\n    pin_b: 4\n# api:\n' > "$fixture/mill_bad.yaml"
+  printf 'wifi:\n  ssid: x\nstepper:\n  - pin_a: GPIO0  # GPIO9\n    pin_b: 4\n# api:\nincludes:\n  - a.h\n' \
+    > "$fixture/mill_bad.yaml"
   violations=$(package_violations "$fixture")
-  if [[ $(grep -c . <<< "$violations") -eq 3 ]]; then
+  if [[ $(grep -c . <<< "$violations") -eq 4 ]]; then
     pass "package search finds node keys and literal pins"
   else
     fail "package search finds node keys and literal pins" "found: $violations"
@@ -655,8 +671,8 @@ plain_flickers() {
   grep -E '^ *- flicker:' <<< "$1" || true
 }
 
-test_lamplight_effects() {
-  local fixture found lights entry id name light effects type effect interval intensity
+test_light_effects() {
+  local fixture found lights entry id index name light effects expected intensity
   fixture=$'    effects:\n      - addressable_flicker:\n          name: A\n      - flicker:\n          name: B\n      - flicker: {}\n'
   found=$(plain_flickers "$fixture")
   if [[ $(grep -c . <<< "$found") -eq 2 ]]; then
@@ -664,47 +680,31 @@ test_lamplight_effects() {
   else
     fail "flicker search finds plain flicker effects only" "found: $found"
   fi
+  found=$(grep -nE 'mill_pixels|addressable_set' "$repo"/include/*.h || true)
+  expect_same "disco headers do not name the strip or use addressable_set" "" "$found"
   [[ $config_status -ne 0 ]] && return
   lights=$(section light)
-  for entry in "mill_door_glow:Mill Door Glow" "mill_stone_window:Mill Stone Floor Window" \
-    "mill_bin_window:Mill Bin Floor Window"; do
-    IFS=: read -r id name <<< "$entry"
+  for entry in "mill_door_lamp:0:Mill Door Lamp" "mill_door_glow:1:Mill Door Glow" \
+    "mill_stone_window:2:Mill Stone Floor Window" "mill_bin_window:3:Mill Bin Floor Window"; do
+    IFS=: read -r id index name <<< "$entry"
     light=$(list_item "$lights" "^    id: $id$")
     effects=$(effect_list "$light")
-    if [[ $(grep -c . <<< "$effects") -ne 1 ]]; then
-      fail "$name has exactly one effect" "effects: ${effects:-none}"
-      continue
+    # Each line: type|name|update_interval. The interior lights also offer Lamplight.
+    expected="addressable_lambda|Disco|16ms"
+    [[ $id != mill_door_lamp ]] && expected=$'addressable_flicker|Lamplight|50ms\n'"$expected"
+    expect_same "$name offers exactly the effects $(cut -d '|' -f 2 <<< "$expected" | tr '\n' ' ')" \
+      "$expected" "$(cut -d '|' -f 1-3 <<< "$effects")"
+    if [[ $id != mill_door_lamp ]]; then
+      intensity=$(head -n 1 <<< "$effects" | cut -d '|' -f 4)
+      if [[ $intensity =~ ^[0-9]*\.?[0-9]+$ ]] && awk -v v="$intensity" 'BEGIN { exit !(v > 0) }'; then
+        pass "$name Lamplight intensity is above 0%"
+      else
+        fail "$name Lamplight intensity is above 0%" "intensity is '$intensity'"
+      fi
     fi
-    pass "$name has exactly one effect"
-    IFS='|' read -r type effect interval intensity <<< "$effects"
-    if [[ $type == addressable_flicker ]]; then
-      pass "$name effect is an addressable flicker"
-    else
-      fail "$name effect is an addressable flicker" "effect type is '$type'"
-    fi
-    if [[ $effect == Lamplight ]]; then
-      pass "$name effect is named Lamplight"
-    else
-      fail "$name effect is named Lamplight" "effect name is '$effect'"
-    fi
-    if [[ $interval == 50ms ]]; then
-      pass "$name Lamplight updates every 50 ms"
-    else
-      fail "$name Lamplight updates every 50 ms" "update_interval is '$interval'"
-    fi
-    if [[ $intensity =~ ^[0-9]*\.?[0-9]+$ ]] && awk -v v="$intensity" 'BEGIN { exit !(v > 0) }'; then
-      pass "$name Lamplight intensity is above 0%"
-    else
-      fail "$name Lamplight intensity is above 0%" "intensity is '$intensity'"
-    fi
+    expect_setting "$name Disco only renders its own pixel ($index) through the light" "$(flat "$light")" \
+      "name: Disco update_interval: 16ms lambda: !lambda \\|- mill_disco::render\\(it, $index\\); "
   done
-  light=$(list_item "$lights" '^    id: mill_door_lamp$')
-  effects=$(item_key "$light" effects)
-  if [[ -n $light && -z $effects ]]; then
-    pass "Mill Door Lamp has no effects"
-  else
-    fail "Mill Door Lamp has no effects" "effects: ${effects:-no light mill_door_lamp}"
-  fi
   found=$(plain_flickers "$lights")
   if [[ -z $found ]]; then
     pass "no light uses the plain flicker effect"
@@ -719,9 +719,9 @@ test_lamplight_effects() {
 # The owner is the top-level key and the id of its list entry, for example
 # script/mill_toggle. The path is the chain of keys from that entry down to
 # the call, for example then/if/condition/or. A call is a key with a dot in it
-# (light.turn_on) or a delay or lambda key. A plain value prints as it is; a
-# mapping prints its plain values as key=value pairs joined by ";". Comments
-# are not read.
+# (light.turn_on) or a delay or lambda key. A plain value prints on one line,
+# with each run of spaces and line breaks as one space; a mapping prints its
+# plain values as key=value pairs joined by ";". Comments are not read.
 action_calls() {
   # The script comes from -c, so that standard input stays free for "-".
   python3 -c "$(cat << 'PY'
@@ -734,11 +734,15 @@ def scalar(node):
     return isinstance(node, yaml.ScalarNode)
 
 
+def one_line(text):
+    return " ".join(str(text).split())
+
+
 def arguments(node):
     if scalar(node):
-        return node.value.strip().splitlines()[0] if node.value.strip() else ""
+        return one_line(node.value)
     if isinstance(node, yaml.MappingNode):
-        return ";".join(f"{k.value}={v.value}" for k, v in node.value if scalar(v))
+        return ";".join(f"{k.value}={one_line(v.value)}" for k, v in node.value if scalar(v))
     return ""
 
 
@@ -772,10 +776,10 @@ PY
 }
 
 # calls_of OWNER [PATH] prints "key arguments" for each call of OWNER in
-# $controls_calls, in order. With PATH, only the calls at that path.
+# $config_calls, in order. With PATH, only the calls at that path.
 calls_of() {
   awk -F '\t' -v owner="$1" -v path="${2-}" \
-    '$1 == owner && (path == "" || $2 == path) { print $3 " " $4 }' <<< "$controls_calls"
+    '$1 == owner && (path == "" || $2 == path) { print $3 " " $4 }' <<< "$config_calls"
 }
 
 # expect_same NAME EXPECTED ACTUAL checks that the two texts are equal.
@@ -814,7 +818,7 @@ partitions="mill_door_glow mill_stone_window mill_bin_window mill_door_lamp"
 interior="mill_door_glow mill_stone_window mill_bin_window"
 
 test_controls_button() {
-  local package header word missing="" button pin on_keys clicks
+  local package header word missing="" button pin on_keys clicks calls
   package=$(cat "$repo/packages/mill_controls.yaml" 2> /dev/null || true)
   expect_setting "node includes the controls package" "$(section packages "$(cat "$repo/windmill.yaml")")" \
     '^  controls: !include packages/mill_controls\.yaml$'
@@ -822,7 +826,7 @@ test_controls_button() {
     "^ +number: '?\\\$\\{button_pin\\}'?$"
   header=$(awk '!/^#/ { exit } 1' <<< "$package")
   for word in button_pin mill_button mill_toggle mill_on mill_off mill_reverse_from_button \
-    mill_sails_reverse_switch; do
+    mill_sails_reverse_switch mill_disco_mode mill_lamplight; do
     grep -qw -- "$word" <<< "$header" || missing+=" $word"
   done
   if [[ -n $header && -z $missing ]]; then
@@ -853,15 +857,29 @@ test_controls_button() {
   else
     fail "Mill Button has exactly two click ranges" "on_click: $clicks"
   fi
-  expect_setting "Mill Button runs the toggle on a 50-500 ms click and the reverse on a 1-5 s click" \
-    "$(flat "$clicks")" \
-    '^ ?- min_length: 50ms max_length: 500ms then: - script\.execute: id: mill_toggle - min_length: 1s max_length: 5s then: - script\.execute: id: mill_reverse_from_button ?$'
+  expect_same "Mill Button click ranges are 50-500 ms and 1-5 s" \
+    $'50ms 500ms\n1s 5s' "$(awk '$2 == "min_length:" { min = $3 } $1 == "max_length:" { print min " " $2 }' <<< "$clicks")"
+  expect_same "a 50-500 ms click runs only the toggle" "then script.execute id=mill_toggle" "$(click_calls "$clicks" 50ms)"
+  calls=$(click_calls "$clicks" 1s)
+  expect_same "a 1-5 s click turns Disco Mode off while it is on, else runs the reverse" \
+    $'then/if/condition switch.is_on id=mill_disco_mode\nthen/if/then switch.turn_off id=mill_disco_mode\nthen/if/else script.execute id=mill_reverse_from_button' \
+    "$(grep -v ' logger\.log ' <<< "$calls")"
+  expect_setting "a 1-5 s click in disco logs that the button left disco" \
+    "$(grep ' logger\.log ' <<< "$calls")" '^then/if/then logger\.log format=Button: disco off;level=INFO;tag=mill\.controls(;|$)'
+}
+
+# click_calls CLICKS MIN prints "path key arguments" for each call of the click
+# range in CLICKS (the lines under on_click) whose min_length is MIN.
+click_calls() {
+  local item
+  item=$(awk -v min="$2" '/^      - / { on = ($2 == "min_length:" && $3 == min) } on' <<< "$1")
+  [[ -n $item ]] || return 0
+  action_calls - <<< "click:"$'\n'"$(sed 's/^    //' <<< "$item")" | cut -f 2- | tr '\t' ' '
 }
 
 test_controls_scripts() {
   [[ $config_status -ne 0 ]] && return
-  local expected id level logs bad mill_on before after pairs
-  controls_calls=$(action_calls - <<< "$config")
+  local expected id logs bad
   expected="switch.is_on id=mill_sails_turn"
   for id in $partitions; do expected+=$'\n'"light.is_on id=$id"; done
   expect_same "toggle checks the sails and all four lights" "$expected" \
@@ -879,37 +897,135 @@ test_controls_scripts() {
     '^switch\.toggle id=mill_sails_reverse_switch\|logger\.log format=[^|;]*sails reversed;[^|]*\|$'
   expect_same "long-press reverse does nothing else" $'switch.is_on\nswitch.toggle\nlogger.log' \
     "$(calls_of script/mill_reverse_from_button | cut -d ' ' -f 1)"
-  logs=$(grep -P '\tlogger\.log\t' <<< "$controls_calls" || true)
+  # Only the controls package's own logs. The disco package logs under mill.disco.
+  logs=$( (action_calls "$repo/packages/mill_controls.yaml" | grep -P '\tlogger\.log\t') || true)
   bad=$(grep -vE ';level=INFO;tag=mill\.controls(;|$)' <<< "$logs" || true)
-  if [[ $(grep -c . <<< "$logs") -eq 3 && -z $bad ]]; then
-    pass "the three log calls use level INFO and tag mill.controls"
+  if [[ $(grep -c . <<< "$logs") -eq 4 && -z $bad ]]; then
+    pass "the four controls log calls use level INFO and tag mill.controls"
   else
-    fail "the three log calls use level INFO and tag mill.controls" "log calls: $logs"
+    fail "the four controls log calls use level INFO and tag mill.controls" "log calls: $logs"
   fi
-  expected=$'script.stop id=mill_on\nswitch.turn_off id=mill_sails_turn'
+  expected=$'script.stop id=mill_on\nscript.stop id=mill_lamplight\nswitch.turn_off id=mill_sails_turn'
   for id in $partitions; do expected+=$'\n'"light.turn_off id=$id;state=false"; done
-  expect_same "mill off stops mill on first, then stops the sails and turns off the four lights" \
+  expect_same "mill off stops mill on and any pending lamplight, then stops the sails and turns off the four lights" \
     "$expected" "$(calls_of script/mill_off)"
   expect_setting "mill on restarts when run again" \
     "$(list_item "$(section script)" '^  - id: mill_on$')" '^    mode: restart$'
-  mill_on=$(calls_of script/mill_on)
-  before=$(sed '/^delay /,$d' <<< "$mill_on")
-  after=$(sed -n '/^delay /,$p' <<< "$mill_on")
-  expected="switch.turn_on id=mill_sails_turn"
+  expect_same "mill on starts the sails, then gives all four lights the lamplight look" \
+    $'switch.turn_on id=mill_sails_turn\nscript.execute id=mill_lamplight;mask=15' "$(calls_of script/mill_on)"
+}
+
+# pairs TEXT prints each light call in TEXT after the line before it, as
+# "condition => call".
+pairs() {
+  sed -n '/^light\.turn_on /{x;G;s/\n/ => /;p};h' <<< "$1"
+}
+
+# bit ID prints the mask bit of the light ID: bit n is pixel n.
+bit() {
+  case $1 in
+    mill_door_lamp) echo 1 ;; mill_door_glow) echo 2 ;; mill_stone_window) echo 4 ;; mill_bin_window) echo 8 ;;
+  esac
+}
+
+test_lamplight_script() {
+  [[ $config_status -ne 0 ]] && return
+  local calls before after expected id level
+  expect_setting "lamplight restarts when run again" \
+    "$(list_item "$(section script)" '^  - id: mill_lamplight$')" '^    mode: restart$'
+  calls=$(calls_of script/mill_lamplight)
+  before=$(sed '/^delay /,$d' <<< "$calls")
+  after=$(sed -n '/^delay /,$p' <<< "$calls")
+  # The amber is 255/120/40 at the LED. ESPHome applies gamma 2.8 after the
+  # inputs, so the inputs are 100/76/52 %.
+  expected=""
   for id in $partitions; do
     [[ $id == mill_door_lamp ]] && level=0.85 || level=1.0
-    expected+=$'\n'"light.turn_on id=$id;color_mode=RGB_WHITE;brightness=$level;color_brightness=1.0;red=1.0;green=0.76;blue=0.52;white=0.0;state=true"
+    expected+="${expected:+$'\n'}lambda return mask & $(bit "$id"); => light.turn_on id=$id;color_mode=RGB_WHITE;brightness=$level;color_brightness=1.0;red=1.0;green=0.76;blue=0.52;white=0.0;effect=None;state=true"
   done
-  expect_same "mill on starts the sails, then fades the lights on to amber with white off and no effect" \
-    "$expected" "$before"
-  pairs=$(sed -n '/^light\.turn_on .*effect=/{x;G;s/\n/ => /;p};h' <<< "$after")
+  expect_same "lamplight fades each selected light to amber with white off and no effect" \
+    "$expected" "$(pairs "$before")"
+  expect_setting "lamplight waits 3 s for the fade" "$after" '^delay 3s$'
   expected=""
   for id in $interior; do
-    expected+="${expected:+$'\n'}lambda return id($id).remote_values.is_on(); => light.turn_on id=$id;effect=Lamplight;state=true"
+    expected+="${expected:+$'\n'}lambda return (mask & $(bit "$id")) && id($id).remote_values.is_on(); => light.turn_on id=$id;effect=Lamplight;state=true"
   done
-  expect_setting "mill on waits 3 s for the fade" "$after" '^delay 3s$'
-  expect_same "after the fade, mill on starts Lamplight on each interior light that is still on" \
-    "$expected" "$pairs"
+  expect_same "after the fade, lamplight starts Lamplight on each selected interior light that is still on" \
+    "$expected" "$(pairs "$after")"
+}
+
+test_disco_mode() {
+  local package text found disco start expected id
+  package="$repo/packages/mill_disco.yaml"
+  expect_setting "node includes the disco package" "$(section packages "$(cat "$repo/windmill.yaml")")" \
+    '^  disco: !include packages/mill_disco\.yaml$'
+  text=$(sed -E 's/(^|[[:space:]])#.*$//' "$package" 2> /dev/null || true)
+  found=$(grep -nE '\bmill_(sails[a-z_]*|sail_speed)\b' <<< "$text" || true)
+  expect_same "disco package names no sails id" "" "$found"
+  [[ $config_status -ne 0 ]] && return
+  disco=$(list_item "$(section switch)" "^    name: '?Disco Mode'?$")
+  expect_setting "Disco Mode has id mill_disco_mode" "$disco" '^    id: mill_disco_mode$'
+  expect_setting "Disco Mode is a template switch" "$disco" '^  - platform: template$'
+  expect_setting "Disco Mode is not optimistic" "$disco" '^    optimistic: false$'
+  expect_setting "Disco Mode boots off" "$disco" '^    restore_mode: ALWAYS_OFF$'
+  start=$(calls_of script/mill_disco_start)
+  expect_setting "disco start stops any pending lamplight before it turns a light on" \
+    "$(sed -n '/^light\./q;p' <<< "$start")" '^script\.stop id=mill_lamplight$'
+  expected=""
+  for id in $partitions; do
+    expected+="${expected:+$'\n'}light.turn_on id=$id;brightness=1.0;effect=Disco;state=true"
+  done
+  expect_same "disco start turns all four lights on at full brightness with Disco" \
+    "$expected" "$(grep '^light\.' <<< "$start" || true)"
+}
+
+test_disco_follows_lights() {
+  [[ $config_status -ne 0 ]] && return
+  local lights check calls expected
+  # The four lights in pixel order, so bit n of a mask is pixel n.
+  lights="{id(mill_door_lamp), id(mill_door_glow), id(mill_stone_window), id(mill_bin_window)}"
+  check=$(list_item "$(section interval)" '^  - interval: 250ms$')
+  calls=$(action_calls - <<< "interval:"$'\n'"$check" | cut -f 2-)
+  expected="then/if/condition"$'\t'"switch.is_on"$'\t'"id=mill_disco_mode"
+  expected+=$'\n'"then/if/then/if/condition"$'\t'"lambda"$'\t'"return mill_disco::any_left($lights);"
+  expected+=$'\n'"then/if/then/if/then"$'\t'"script.execute"$'\t'"id=mill_disco_leave;mask=return mill_disco::disco_mask($lights);"
+  expected+=$'\n'"then/if/else/if/condition"$'\t'"lambda"$'\t'"return mill_disco::any_disco($lights);"
+  expected+=$'\n'"then/if/else/if/then"$'\t'"script.execute"$'\t'"id=mill_disco_start"
+  expect_same "every 250 ms, a light that leaves Disco ends disco, and a light that picks Disco starts it" \
+    "$expected" "$calls"
+  expect_setting "the leave takes an integer mask" \
+    "$(flat "$(list_item "$(section script)" '^  - id: mill_disco_leave$')")" ' parameters: mask: int '
+  expect_same "the leave turns the switch off, then gives the lamplight look to the lights in its mask" \
+    $'switch.template.publish id=mill_disco_mode;state=false\nscript.execute id=mill_lamplight;mask=return mask;' \
+    "$(calls_of script/mill_disco_leave then/if/then | grep -v '^logger\.')"
+  expect_same "turning Disco Mode off leaves disco on all four lights" \
+    "script.execute id=mill_disco_leave;mask=15" "$(calls_of switch/mill_disco_mode turn_off_action/then)"
+}
+
+test_disco_tempo_and_rate() {
+  [[ $config_status -ne 0 ]] && return
+  local bpm rate
+  bpm=$(list_item "$(section number)" "^    name: '?Disco BPM'?$")
+  expect_setting "Disco BPM has id mill_disco_bpm" "$bpm" '^    id: mill_disco_bpm$'
+  expect_setting "Disco BPM minimum is 60" "$bpm" '^    min_value: 60(\.0)?$'
+  expect_setting "Disco BPM maximum is 180" "$bpm" '^    max_value: 180(\.0)?$'
+  expect_setting "Disco BPM step is 0.1" "$bpm" '^    step: 0\.1$'
+  expect_setting "Disco BPM starts at 120" "$bpm" '^    initial_value: 120(\.0)?$'
+  expect_setting "Disco BPM is not optimistic" "$bpm" '^    optimistic: false$'
+  expect_setting "Disco BPM does not restore" "$bpm" '^    restore_value: false$'
+  rate=$(list_item "$(section select)" "^    name: '?Disco Rate'?$")
+  expect_setting "Disco Rate has id mill_disco_rate" "$rate" '^    id: mill_disco_rate$'
+  expect_setting "Disco Rate offers ½×, 1× and 2×" "$(flat "$(item_key "$rate" options)")" \
+    "^ ?- '?½×'? - '?1×'? - '?2×'? ?$"
+  expect_setting "Disco Rate starts at 1×" "$rate" "^    initial_option: '?1×'?$"
+  expect_setting "Disco Rate is not optimistic" "$rate" '^    optimistic: false$'
+  expect_setting "Disco Rate does not restore" "$rate" '^    restore_value: false$'
+  expect_same "Disco BPM passes the tempo to the glue, then shows a guard drop and the accepted tempo" \
+    "lambda if (mill_disco::set_bpm_now(x)) id(mill_disco_rate).publish_state(\"1×\"); id(mill_disco_bpm).publish_state(mill_disco::shared().clock.bpm);" \
+    "$(calls_of number/mill_disco_bpm)"
+  expect_same "Disco Rate passes the option to the glue, then shows the accepted rate" \
+    "lambda id(mill_disco_rate).publish_state(mill_disco::set_rate_now(x));" \
+    "$(calls_of select/mill_disco_rate)"
 }
 
 test_controls_boundaries() {
@@ -927,17 +1043,24 @@ test_controls_boundaries() {
   expect_same "controls package makes no call to Home Assistant" "" "$found"
   found=$( (strip_writes "$package"; grep -n 'mill_pixels' <<< "$text") || true)
   expect_same "controls package does not write or name the strip" "" "$found"
-  ids=$(action_calls "$package" | awk -F '\t' '$3 ~ /^light\.(turn_on|control|toggle)$/ { print $4 }' |
-    sed -E 's/^(.*;)?id=([^;]*).*$/\2/')
+  found=$(turned_on "$package")
+  expect_same "controls package turns on no light" "" "$found"
+  ids=$(turned_on "$repo/packages/mill_lights.yaml" "$repo/packages/mill_disco.yaml")
   for id in $ids; do
     grep -qw -- "$id" <<< "$partitions" || outside+=" $id"
   done
   if [[ -n $ids && -z $outside ]]; then
-    pass "every light the controls package turns on is a capped partition light"
+    pass "every light the lights and disco packages turn on is a capped partition light"
   else
-    fail "every light the controls package turns on is a capped partition light" \
+    fail "every light the lights and disco packages turn on is a capped partition light" \
       "lights outside the four partitions:${outside:- none, but no light is turned on}"
   fi
+}
+
+# turned_on FILE... prints the id of each light that an action in FILE turns on.
+turned_on() {
+  { action_calls "$@" 2> /dev/null || true; } | awk -F '\t' '$3 ~ /^light\.(turn_on|control|toggle)$/ { print $4 }' |
+    sed -E 's/^(.*;)?id=([^;]*).*$/\2/'
 }
 
 test_tool_versions
@@ -958,10 +1081,14 @@ test_lambdas_are_short
 test_packages_hold_no_node_config
 test_no_strip_writes
 test_lights_settings
-test_lamplight_effects
+test_light_effects
 test_action_search
 test_controls_button
 test_controls_scripts
+test_lamplight_script
+test_disco_mode
+test_disco_follows_lights
+test_disco_tempo_and_rate
 test_controls_boundaries
 
 echo "$passed passed, $failed failed"

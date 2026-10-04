@@ -463,6 +463,8 @@ script:
 - The sails run by setting the target to 2 billion steps. At 170 steps/s that lasts about four months of continuous running, so in practice it never reaches it. Turning off sets the target to the current position, which stops it immediately without a deceleration ramp.
 - `internal: true` on the pixel strip hides the raw 4-pixel entity from Home Assistant so only the three meaningful groups appear.
 - Both lights are off at boot and the sails are stopped. After a power cut you want a dark, still mill, not a motor running unattended.
+- **The Mill Button** (`packages/mill_controls.yaml`). A short press (50–500 ms) turns the whole mill on or off. A long press (hold 1–5 s, then release) reverses the turning sails, and does nothing while they are stopped. Other presses do nothing.
+- **The Mill Button in disco.** A short press turns the mill off as it does outside disco: the sails stop, all four lights fade off, and "Disco Mode" turns off. A long press leaves disco: all four lights take the lamplight look within 4 s, and the sails keep their speed and direction, with no reversal. Other presses do nothing. The button never starts disco. The button needs no WiFi or HA, so it acts the same with no network, and one short press always stops the whole mill.
 
 ## Mounting
 
@@ -517,6 +519,20 @@ The governing rule: **everything electrical must work on the bench before anythi
 
 If pixel flicker appears only when the stepper runs, that's the data line picking up switching noise. Fix it now with separation and a 330R, not later.
 
+### Disco checks by eye
+
+Do these on the bench once the button and all four pixels work. "Disco Mode", "Disco BPM" and "Disco Rate" are in HA.
+
+- [ ] With the mill dark, turn on "Disco Mode": all four pixels flash in turn, one flash each per beat, a quarter beat apart, and the sails stay stopped
+- [ ] Each flash starts bright and fades to a dim glow, not to dark; the firing order changes every bar and the colours change every 16 beats
+- [ ] Change "Disco BPM": the chase speeds up or slows down at once, with no jump. At 90 BPM, "Disco Rate" 2× doubles the flashes, and above 90 BPM HA refuses 2× and shows 1×
+- [ ] With the sails turning, turn "Disco Mode" on and off: the sails keep their speed and direction, and after off all four lights show the lamplight look within 4 s
+- [ ] Time 5 sail turns at 170 steps/s with and without disco, then at the highest safe speed: at each speed the two times agree within 2%
+- [ ] In disco, hold the button about 0.7 s, then about 6 s: nothing changes. Hold it about 2 s: the lamplight look returns within 4 s and the sails do not reverse
+- [ ] In disco, short-press the button: the sails stop within 1 s and all four pixels are dark within 4 s, and HA shows "Disco Mode" off
+- [ ] Repeat the two button checks with the WiFi access point off: the chase keeps running and the button acts the same
+- [ ] Cut the power in disco: the mill comes back dark and stopped, with "Disco Mode" off
+
 ### Phase 2, the drive mock-up
 
 - [ ] Card mock-up of the cap interior, check the 28BYJ-48 actually fits
@@ -560,6 +576,9 @@ Lift the mill off its electronics plate:
 2. Extend those nine conductors to the nearest junction box on a single cable.
 3. At the hub, the four coil wires go to a spare ULN2003, the data line to a spare RMT channel, the button line to a spare input, 5V and GND to the bus.
 4. Move the stepper and light blocks from this config into the hub's config, renaming ids to avoid collisions.
+   Copy `include/` with `packages/`, and add the same `esphome: includes:` line to the hub's config
+   (`include/mill_disco.h` and `include/mill_disco_esphome.h`). The light effects call these headers,
+   and a package cannot hold that line.
 5. Remove the C3 and the ULN2003 from the plate, or leave them in place unpowered. The hub then supplies 5V to the 4-pin connector, and a hub ULN2003 drives the motor plug.
 
 The one thing to watch: stepper coil signals over a run of a metre or more are more susceptible to noise than you'd expect. Use twisted pairs and keep the run away from pixel data. If the sails start stuttering after the move, that's why.

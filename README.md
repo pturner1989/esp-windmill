@@ -103,7 +103,7 @@ forward; when it is on, they turn the other way. Switch it while the sails turn 
 once, and "Sails Turning" stays on. Switch it while they are stopped and it only sets the direction
 for the next start. A short press of the Mill Button never changes it. A long press (hold 1 s to 5 s,
 then release) toggles it while the sails turn, so they reverse at once; while the sails are stopped, a
-long press does nothing. The switch is off after every restart, so the sails always start forward.
+long press does nothing. While "Disco Mode" is on, a long press leaves disco instead (see "Disco"). The switch is off after every restart, so the sails always start forward.
 `sails_forward_direction` (see "Forward direction") still sets which way is forward. Keep
 "Reverse Rotation" off when you check the forward direction.
 
@@ -122,3 +122,24 @@ in front, for example "Windmill Mill Door Glow".
 
 The groups exist only in HA. The mill button and the firmware scripts act on the four lights
 directly, not on these groups.
+
+## Disco
+
+Turn on the "Disco Mode" switch in HA to start disco. All four lights turn on at full brightness with
+the "Disco" effect: each pixel flashes in turn and fades, the firing order changes every bar and the
+colours change every 16 beats. Turn the switch off to end disco: within 4 s all four lights show the
+lamplight look (warm amber, with Lamplight on the three interior lights), also a light that was off
+before disco. Disco never touches the sails, so turning sails keep turning and stopped sails stay
+stopped. The switch is off after every restart.
+
+The Mill Button works in disco, also with no WiFi or HA. A short press (50 ms to 500 ms) turns the
+mill off as it does outside disco: the sails stop, all four lights fade off, and "Disco Mode" turns
+off. A long press (hold 1 s to 5 s, then release) leaves disco: all four lights show the lamplight look
+within 4 s, and the sails keep their speed and direction, with no reversal. Other presses do nothing.
+The button never starts disco. Outside disco, the button acts as before.
+
+Set the tempo with "Disco BPM" (60 to 180 in steps of 0.1) and the flashes per beat with "Disco Rate":
+½× flashes each pixel every second beat, 1× every beat and 2× every beat and half beat. A change takes
+effect at once and keeps the beat. 2× is allowed only at 90 BPM or below, so no pixel flashes more than
+three times a second: above 90 BPM the mill refuses 2× and HA shows 1×, and a tempo above 90 BPM drops
+2× to 1×. Both controls go back to 120 BPM and 1× after every restart.

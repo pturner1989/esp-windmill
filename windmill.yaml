@@ -16,6 +16,11 @@ substitutions:
 esphome:
   name: ${name}
   friendly_name: ${friendly_name}
+  # The disco maths and its glue, used by the "Disco" light effects. A package
+  # cannot hold this node-level key, so the hub must copy it too.
+  includes:
+    - include/mill_disco.h
+    - include/mill_disco_esphome.h
 
 esp32:
   board: esp32-c3-devkitm-1
@@ -53,3 +58,4 @@ packages:
   sails: !include packages/mill_sails.yaml
   lights: !include packages/mill_lights.yaml
   controls: !include packages/mill_controls.yaml
+  disco: !include packages/mill_disco.yaml

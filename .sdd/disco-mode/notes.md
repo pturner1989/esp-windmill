@@ -1,7 +1,7 @@
 # Disco mode: feature request notes
 
 **Date:** 2026-10-03
-**Status:** Research complete (research.md). Next: `/sddv2:requirements`.
+**Status:** Implemented (spec v1.6, design v1.2, six tasks). Closed by the user 2026-10-04. Taps were removed from scope.
 
 ## Request
 

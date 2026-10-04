@@ -5,7 +5,8 @@
 #   mill_door_glow (light "Mill Door Glow", pixel 1),
 #   mill_stone_window (light "Mill Stone Floor Window", pixel 2),
 #   mill_bin_window (light "Mill Bin Floor Window", pixel 3),
-#   mill_door_lamp (light "Mill Door Lamp", pixel 0).
+#   mill_door_lamp (light "Mill Door Lamp", pixel 0),
+#   mill_lamplight (script: the lamplight look on the lights in a mask).
 # Each light applies its own colour correction, not the strip's, so the 60%
 # cap is on the strip and on every light. The cap lists four values: with
 # only three, ESPHome leaves the white channel at 100%. Every pixel write goes
@@ -13,8 +14,13 @@
 # while it changes.
 # The three interior lights offer "Lamplight", an addressable_flicker. It
 # writes at most once each update_interval, whatever the loop rate, and each
-# light draws its own random values. The door lamp has no effect and stays
-# steady. Do not use the plain flicker effect: it writes on every loop pass.
+# light draws its own random values. Do not use the plain flicker effect: it
+# writes on every loop pass.
+# Every light offers "Disco" (the door lamp offers only "Disco"). It calls
+# mill_disco::render (include/mill_disco_esphome.h) with the light's pixel
+# number, which writes only that light's own pixel, so the cap and the light's
+# brightness apply. The headers assume gamma_correct 2.8 (the default) on each
+# light: if it changes here, change kGamma in include/mill_disco.h too.
 
 light:
   - platform: esp32_rmt_led_strip
@@ -44,6 +50,10 @@ light:
           name: Lamplight
           update_interval: 50ms
           intensity: 10%
+      - addressable_lambda:
+          name: Disco
+          update_interval: 16ms
+          lambda: "mill_disco::render(it, 1);"
 
   - platform: partition
     id: mill_stone_window
@@ -60,6 +70,10 @@ light:
           name: Lamplight
           update_interval: 50ms
           intensity: 10%
+      - addressable_lambda:
+          name: Disco
+          update_interval: 16ms
+          lambda: "mill_disco::render(it, 2);"
 
   - platform: partition
     id: mill_bin_window
@@ -76,6 +90,10 @@ light:
           name: Lamplight
           update_interval: 50ms
           intensity: 10%
+      - addressable_lambda:
+          name: Disco
+          update_interval: 16ms
+          lambda: "mill_disco::render(it, 3);"
 
   - platform: partition
     id: mill_door_lamp
@@ -87,3 +105,104 @@ light:
     color_correct: [60%, 60%, 60%, 60%]
     restore_mode: ALWAYS_OFF
     default_transition_length: 3s
+    effects:
+      - addressable_lambda:
+          name: Disco
+          update_interval: 16ms
+          lambda: "mill_disco::render(it, 0);"
+
+script:
+  # The lamplight look on the lights in `mask` (bit n is pixel n, so 15 is all
+  # four): fade to warm deep amber, then start Lamplight. Effect None stops any
+  # other effect ("Disco") at once and still takes the 3 s default fade. A call
+  # that names a real effect skips the fade, so Lamplight starts after it.
+  # The pixels are RGBW: the colour mode and white 0% keep the white channel
+  # dark, and colour brightness 100% overrides a lower value set from HA.
+  # The amber is 255/120/40 at the LED. ESPHome applies gamma 2.8 after these
+  # values, so they are set to the inputs that give that output: 100/76/52 %.
+  # Every caller that ends the look (mill off, a disco start) stops this script.
+  - id: mill_lamplight
+    mode: restart
+    parameters:
+      mask: int
+    then:
+      - if:
+          condition:
+            lambda: "return mask & 2;"
+          then:
+            - light.turn_on:
+                id: mill_door_glow
+                color_mode: RGB_WHITE
+                brightness: 100%
+                color_brightness: 100%
+                red: 100%
+                green: 76%
+                blue: 52%
+                white: 0%
+                effect: None
+      - if:
+          condition:
+            lambda: "return mask & 4;"
+          then:
+            - light.turn_on:
+                id: mill_stone_window
+                color_mode: RGB_WHITE
+                brightness: 100%
+                color_brightness: 100%
+                red: 100%
+                green: 76%
+                blue: 52%
+                white: 0%
+                effect: None
+      - if:
+          condition:
+            lambda: "return mask & 8;"
+          then:
+            - light.turn_on:
+                id: mill_bin_window
+                color_mode: RGB_WHITE
+                brightness: 100%
+                color_brightness: 100%
+                red: 100%
+                green: 76%
+                blue: 52%
+                white: 0%
+                effect: None
+      - if:
+          condition:
+            lambda: "return mask & 1;"
+          then:
+            - light.turn_on:
+                id: mill_door_lamp
+                color_mode: RGB_WHITE
+                brightness: 85%
+                color_brightness: 100%
+                red: 100%
+                green: 76%
+                blue: 52%
+                white: 0%
+                effect: None
+      - delay: 3s
+      # A light turned off during the fade is still on in light.is_on, which
+      # reads the fading values, so check the target state that HA shows.
+      - if:
+          condition:
+            lambda: "return (mask & 2) && id(mill_door_glow).remote_values.is_on();"
+          then:
+            - light.turn_on:
+                id: mill_door_glow
+                effect: Lamplight
+      - if:
+          condition:
+            lambda: "return (mask & 4) && id(mill_stone_window).remote_values.is_on();"
+          then:
+            - light.turn_on:
+                id: mill_stone_window
+                effect: Lamplight
+      - if:
+          condition:
+            lambda: "return (mask & 8) && id(mill_bin_window).remote_values.is_on();"
+          then:
+            - light.turn_on:
+                id: mill_bin_window
+                effect: Lamplight

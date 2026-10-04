@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Lints, validates and compiles the firmware. Stops at the first failure.
+# Builds and runs the header tests, then lints, validates and compiles the
+# firmware. Stops at the first failure.
 set -euo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
@@ -21,6 +22,10 @@ if [[ -n $(git ls-files --cached -- secrets.yaml) ]]; then
   fail "secrets.yaml is staged in git. Unstage it: git rm --cached secrets.yaml"
 fi
 
+echo "check: header tests"
+mkdir -p .esphome/host-tests
+g++ -std=c++17 -Wall -Wextra -Werror -Iinclude tests/mill_disco_test.cpp -o .esphome/host-tests/mill_disco_test
+.esphome/host-tests/mill_disco_test
 echo "check: yamllint -s ."
 yamllint -s .
 echo "check: esphome config windmill.yaml"
