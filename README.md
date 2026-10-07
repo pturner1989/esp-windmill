@@ -94,8 +94,8 @@ GitHub. `local.yaml` is only for builds from this repo.
 2. In HA, open the ESPHome dashboard. "Windmill" shows as discovered. Click **Adopt**. The
    dashboard writes a short config that pulls `windmill.yaml` from GitHub and adds WiFi.
 3. Edit that config before the first install:
-   - Set `api: encryption: key:` to the `api_key` from `secrets.yaml`. The dashboard makes a
-     new key, and HA already knows the old one.
+   - Set or add `api: encryption: key:` with the `api_key` from `secrets.yaml`. The dashboard
+     makes a new key, or none if it could not read the package, and HA already knows the old one.
    - Add the update password and the fallback access point password. The running firmware asks
      for the update password, so the first install fails without it. Put both values in the
      dashboard's secrets.
@@ -107,19 +107,6 @@ GitHub. `local.yaml` is only for builds from this repo.
      wifi:
        ap:
          password: !secret windmill_ap_password
-     ```
-
-   - The repo is private, so replace the one-line package with the long form and a GitHub token
-     that can read this repo's contents:
-
-     ```yaml
-     packages:
-       windmill:
-         url: https://github.com/pturner1989/esp-windmill
-         ref: main
-         username: pturner1989
-         password: !secret github_token
-         files: [windmill.yaml]
      ```
 
 4. Click **Install**, then **Wirelessly**.
