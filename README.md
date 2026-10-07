@@ -37,8 +37,8 @@ With the venv active, run:
 scripts/check.sh
 ```
 
-The script lints all YAML (`yamllint -s .`), validates the config (`esphome config windmill.yaml`)
-and compiles the firmware (`esphome compile windmill.yaml`). It stops at the first failure.
+The script lints all YAML (`yamllint -s .`), validates the config (`esphome config local.yaml`)
+and compiles the firmware (`esphome compile local.yaml`). It stops at the first failure.
 It refuses to start if `esphome` or `yamllint` is not on the path, if `secrets.yaml` is missing,
 or if `secrets.yaml` is staged in git. The first compile downloads the ESP-IDF toolchain
 (several GB), so it takes several minutes.
@@ -53,7 +53,7 @@ Run it with the venv active.
 First flash, over USB. Unplug the USB charger and connect the C3 to the laptop:
 
 ```bash
-esphome run windmill.yaml --device /dev/ttyACM0
+esphome run local.yaml --device /dev/ttyACM0
 ```
 
 If Home Assistant still lists the old device from the web installer, remove it before you adopt
@@ -63,7 +63,7 @@ enter the `api_key` from `secrets.yaml`.
 After the first flash, update over the network:
 
 ```bash
-esphome run windmill.yaml --device village-windmill.local
+esphome run local.yaml --device village-windmill.local
 ```
 
 If `village-windmill.local` does not resolve on this laptop (mDNS discovery is blocked here),
@@ -75,7 +75,7 @@ build directory, so compile the config you want (or use `esphome run`) before an
 Serial logging is off. Read the device log over the network:
 
 ```bash
-esphome logs windmill.yaml
+esphome logs local.yaml
 ```
 
 If the device cannot join the configured WiFi, it starts the access point "Windmill Fallback"
@@ -83,6 +83,49 @@ If the device cannot join the configured WiFi, it starts the access point "Windm
 setup page. The device keeps that network across network updates until a full flash erase. To go
 back to the network in `secrets.yaml`, enter it again on the setup page, or erase the flash and
 flash over USB.
+
+## Build from Home Assistant
+
+`windmill.yaml` holds no secrets, so the ESPHome dashboard in HA can build it straight from
+GitHub. `local.yaml` is only for builds from this repo.
+
+1. Push to `main`, then update over the network once from the laptop. The running firmware must
+   include `dashboard_import` before the dashboard offers to adopt the device.
+2. In HA, open the ESPHome dashboard. "Windmill" shows as discovered. Click **Adopt**. The
+   dashboard writes a short config that pulls `windmill.yaml` from GitHub and adds WiFi.
+3. Edit that config before the first install:
+   - Set `api: encryption: key:` to the `api_key` from `secrets.yaml`. The dashboard makes a
+     new key, and HA already knows the old one.
+   - Add the update password and the fallback access point password. The running firmware asks
+     for the update password, so the first install fails without it. Put both values in the
+     dashboard's secrets.
+
+     ```yaml
+     ota:
+       - id: !extend mill_ota
+         password: !secret windmill_ota_password
+     wifi:
+       ap:
+         password: !secret windmill_ap_password
+     ```
+
+   - The repo is private, so replace the one-line package with the long form and a GitHub token
+     that can read this repo's contents:
+
+     ```yaml
+     packages:
+       windmill:
+         url: https://github.com/pturner1989/esp-windmill
+         ref: main
+         username: pturner1989
+         password: !secret github_token
+         files: [windmill.yaml]
+     ```
+
+4. Click **Install**, then **Wirelessly**.
+
+The dashboard fetches `main` again at most once a day. To build a change pushed today, add
+`refresh: 0s` to the package, or use **Clean build files** before you install.
 
 ## Forward direction
 

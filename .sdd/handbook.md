@@ -34,7 +34,8 @@ When logic outgrows one level, move it to the next:
 ## Repository layout
 
 ```
-windmill.yaml              # Node config: board, wifi, api, ota, logger. Includes the packages.
+windmill.yaml              # Node config: board, wifi, api, ota, logger. Includes the packages. No secrets.
+local.yaml                 # Build from this repo: windmill.yaml plus the secrets in secrets.yaml.
 packages/
   mill_sails.yaml          # Stepper, speed number, run switch, the 20 ms ramp tick
   mill_lights.yaml         # Pixel strip and partition lights
@@ -110,7 +111,7 @@ ESPHome has no exception model. Handle failure through state and safe defaults:
 - Default log level `INFO` in the shipped config. Use `DEBUG` only during bench work, and do not commit it.
 - Use `ESP_LOGx` with a tag that names the area (`"mill.sails"`, `"mill.lights"`) inside lambdas.
 - Do not log secrets.
-- Read logs over the API (`esphome logs windmill.yaml`) because serial logging is off.
+- Read logs over the API (`esphome logs local.yaml`) because serial logging is off.
 
 ## Testing
 
@@ -119,8 +120,8 @@ There is no unit-test framework for ESPHome YAML. Testing has four levels:
 | Level | Command or method | When |
 | --- | --- | --- |
 | Header tests | `scripts/check.sh` (g++) | Every change to `include/` |
-| Config validation | `esphome config windmill.yaml` | Every change |
-| Compile | `esphome compile windmill.yaml` | Every change to firmware |
+| Config validation | `esphome config local.yaml` | Every change |
+| Compile | `esphome compile local.yaml` | Every change to firmware |
 | Bench acceptance | The phase checklists in `spec.md` (Build and test order) | Each hardware milestone |
 
 - To validate without real credentials, copy `secrets.example.yaml` to `secrets.yaml`.
@@ -153,8 +154,8 @@ for t in mill_disco_test mill_ramp_test; do
   g++ -std=c++17 -Wall -Wextra -Werror -Iinclude tests/$t.cpp -o .esphome/host-tests/$t && .esphome/host-tests/$t
 done
 yamllint -s .
-esphome config windmill.yaml
-esphome compile windmill.yaml   # when firmware YAML changed
+esphome config local.yaml
+esphome compile local.yaml   # when firmware YAML changed
 git diff --cached --name-only | grep -q '^secrets.yaml$' && echo "secrets staged" && exit 1
 ```
 

@@ -1,3 +1,6 @@
+# The node config, with no secrets, so the ESPHome dashboard in HA can pull it
+# from GitHub. local.yaml adds the secrets for a build from this repo, and the
+# config the dashboard writes on adoption adds its own.
 substitutions:
   name: village-windmill
   friendly_name: Windmill
@@ -16,6 +19,10 @@ substitutions:
 esphome:
   name: ${name}
   friendly_name: ${friendly_name}
+  # The ESPHome dashboard needs this to adopt the node.
+  project:
+    name: pturner1989.esp-windmill
+    version: "1.0"
   # The disco maths and its glue, used by the "Disco" light effects, and the
   # sails maths, used by the sails tick. A package cannot hold this node-level
   # key, so the hub must copy it too.
@@ -39,23 +46,24 @@ logger:
 # The node never restarts itself when HA or WiFi is gone, so the mill keeps
 # its state through the loss. Both connections retry on their own.
 api:
-  encryption:
-    key: !secret api_key
   reboot_timeout: 0s
 
+# local.yaml adds the password with "id: !extend mill_ota".
 ota:
   - platform: esphome
-    password: !secret ota_password
+    id: mill_ota
 
 wifi:
-  ssid: !secret wifi_ssid
-  password: !secret wifi_password
   reboot_timeout: 0s
   ap:
     ssid: Windmill Fallback
-    password: !secret ap_password
 
 captive_portal:
+
+# Lets the ESPHome dashboard in HA adopt the node and build it from this file
+# on GitHub.
+dashboard_import:
+  package_import_url: github://pturner1989/esp-windmill/windmill.yaml@main
 
 packages:
   sails: !include packages/mill_sails.yaml

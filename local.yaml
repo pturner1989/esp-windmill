@@ -1,0 +1,18 @@
+# A build from this repo: the node config in windmill.yaml plus the secrets in
+# secrets.yaml. HA builds the adopted config instead, which adds its own.
+packages:
+  windmill: !include windmill.yaml
+
+api:
+  encryption:
+    key: !secret api_key
+
+ota:
+  - id: !extend mill_ota
+    password: !secret ota_password
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  ap:
+    password: !secret ap_password

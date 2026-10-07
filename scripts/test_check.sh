@@ -50,7 +50,7 @@ new_repo() {
   dir=$(mktemp -d "$work/repo.XXXX")
   mkdir -p "$dir/scripts"
   cp -p "$repo/scripts/check.sh" "$dir/scripts/"
-  cp "$repo/windmill.yaml" "$repo/secrets.example.yaml" "$repo/.gitignore" "$dir/"
+  cp "$repo/windmill.yaml" "$repo/local.yaml" "$repo/secrets.example.yaml" "$repo/.gitignore" "$dir/"
   cp -r "$repo/packages" "$repo/include" "$repo/tests" "$dir/"
   git -C "$dir" init -q
   if [[ ${1:-} == with-secrets ]]; then
@@ -106,7 +106,7 @@ test_full_pass_with_stubs() {
     expected+="g++ -std=c++17 -Wall -Wextra -Werror -Iinclude tests/$test.cpp -o .esphome/host-tests/$test"
     expected+=$'\n'".esphome/host-tests/$test"$'\n'
   done
-  expected+=$'yamllint -s .\nesphome config windmill.yaml\nesphome compile windmill.yaml'
+  expected+=$'yamllint -s .\nesphome config local.yaml\nesphome compile local.yaml'
   if [[ $status -ne 0 ]]; then
     fail "$name" "exit status $status. Output: $output"
   elif [[ $calls != "$expected" ]]; then
@@ -223,7 +223,7 @@ pin_number() {
     on && /^    [^ ]/ { exit }' <<< "$1"
 }
 
-# load_config validates windmill.yaml, keeps the output in $config and its calls
+# load_config validates local.yaml, keeps the output in $config and its calls
 # (see action_calls) in $config_calls. It uses the example secrets when
 # secrets.yaml is missing.
 load_config() {
@@ -233,7 +233,7 @@ load_config() {
     cp "$repo/secrets.example.yaml" "$repo/secrets.yaml"
   fi
   config_status=0
-  config=$(cd "$repo" && esphome config windmill.yaml 2> /dev/null) || config_status=$?
+  config=$(cd "$repo" && esphome config local.yaml 2> /dev/null) || config_status=$?
   # ESPHome wraps the access point name in escaped terminal codes that hide it.
   config=${config//\\033\[8m/}
   config=${config//\\033\[28m/}
@@ -265,6 +265,11 @@ test_node_settings() {
   expect_setting "access point starts after the default 90 s" "$wifi" '^    ap_timeout: 90s$'
   expect_same "node leaves the access point timeout at its default" "" \
     "$(grep -n 'ap_timeout' "$repo/windmill.yaml" || true)"
+  # The ESPHome dashboard in HA builds windmill.yaml from GitHub, without the
+  # repo's secrets.yaml. local.yaml adds the secrets for a build from here.
+  expect_same "node config holds no secrets" "" "$(grep -n '!secret' "$repo/windmill.yaml" || true)"
+  expect_setting "node offers its GitHub config for adoption" "$(section dashboard_import)" \
+    '^  package_import_url: github://pturner1989/esp-windmill/windmill\.yaml@main$'
   expect_setting "node includes the two disco headers and the two ramp headers" "$(flat "$(section esphome)")" \
     ' includes: - [^ ]*/include/mill_disco\.h - [^ ]*/include/mill_disco_esphome\.h - [^ ]*/include/mill_ramp\.h - [^ ]*/include/mill_ramp_esphome\.h '
 }

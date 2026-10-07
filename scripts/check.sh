@@ -30,8 +30,8 @@ for test in mill_disco_test mill_ramp_test; do
 done
 echo "check: yamllint -s ."
 yamllint -s .
-echo "check: esphome config windmill.yaml"
-esphome config windmill.yaml
-echo "check: esphome compile windmill.yaml"
-esphome compile windmill.yaml
+echo "check: esphome config local.yaml"
+esphome config local.yaml
+echo "check: esphome compile local.yaml"
+esphome compile local.yaml
 echo "check: all passed"
