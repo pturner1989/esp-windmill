@@ -291,7 +291,7 @@ test_sails_settings() {
     fi
   done
   expect_setting "sails stepper is a ULN2003" "$stepper" '^  - platform: uln2003$'
-  expect_setting "sails stepper does not sleep when done" "$stepper" '^    sleep_when_done: false$'
+  expect_setting "sails stepper sleeps when done" "$stepper" '^    sleep_when_done: true$'
   # The tick ramps the speed, so the stepper's own ramp is off (inf).
   expect_setting "sails stepper has no acceleration ramp of its own" "$stepper" '^    acceleration: 1000000(\.0)?$'
   expect_setting "sails stepper has no deceleration ramp of its own" "$stepper" '^    deceleration: 1000000(\.0)?$'

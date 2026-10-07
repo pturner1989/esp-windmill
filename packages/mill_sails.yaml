@@ -36,8 +36,9 @@ stepper:
     max_speed: 1 steps/s
     acceleration: inf
     deceleration: inf
-    # Keep the coils energised so the stopped sails hold their place.
-    sleep_when_done: false
+    # Power the coils down once the sails stop, so the motor and the ULN2003
+    # stay cool. The gearbox holds the sails well enough unpowered.
+    sleep_when_done: true
 
 switch:
   # The tick reads the state, so the switch needs no action.
@@ -104,7 +105,7 @@ number:
 interval:
   # The sails tick. It moves the speed toward the goal, then re-bases the
   # position to 0 and aims 1000 steps ahead in the direction of the speed, or
-  # at 0 to stop and hold. The calls run in one loop pass, so no step falls
+  # at 0 to stop, which powers the coils down. The calls run in one loop pass, so no step falls
   # between them, and the stepper still takes at most one step per pass.
   - interval: 20ms
     then:

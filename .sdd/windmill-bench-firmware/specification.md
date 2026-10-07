@@ -77,8 +77,8 @@ In every statement, "the system" means the windmill firmware running on the ESP3
 **FR-03: Show the sails turning in either direction**
 - **Statement:** While the sails turn in either direction, the system shall show "Sails Turning" as on in HA.
 
-**FR-04: Hold the sails when stopped**
-- **Statement:** While the sails are stopped, the system shall keep the motor energised so that the sails hold their position.
+**FR-04: Power the motor down when stopped**
+- **Statement:** While the sails are stopped, the system shall keep all four motor coils de-energised.
 
 **FR-05: Sail Speed range and default**
 - **Statement:** The system shall offer "Sail Speed" in HA with a range of 60 to 320 steps/s in steps of 10 and a default of 170 steps/s that applies until the operator sets another value.
@@ -227,10 +227,10 @@ In every statement, "the system" means the windmill firmware running on the ESP3
 - **When:** The operator turns on "Reverse Rotation" in HA and watches the mark for 5 s; turns on "Sails Turning", watches the mark for one minute and times three full turns; then, while the sails turn, turns off "Reverse Rotation" and watches for 30 s; turns "Reverse Rotation" on again and watches for 30 s; turns off "Sails Turning"; then turns on "Sails Turning" again, with "Reverse Rotation" still on, and short-presses the button. Last, with "Reverse Rotation" still on, the operator unplugs the USB charger for 10 s, plugs it back in, waits until HA shows the device connected, and turns on "Sails Turning".
 - **Then:** While the sails are stopped, turning on "Reverse Rotation" does not move the mark, and "Sails Turning" stays off. With "Reverse Rotation" on, the mark turns steadily clockwise, opposite to AT-01, three turns take a time within the AT-01 window, and HA shows "Sails Turning" on. When "Reverse Rotation" goes off, the mark changes to anticlockwise without the operator stopping it, and "Sails Turning" stays on. When "Reverse Rotation" goes on again, the mark changes back to clockwise. When "Sails Turning" goes off, the mark stops within 1 s of the switch going off in HA. After the button press, the mark stops within 1 s of release, HA shows "Sails Turning" off within 5 s, and "Reverse Rotation" stays on. After the restart, HA shows "Reverse Rotation" off, and when "Sails Turning" goes on the mark turns anticlockwise.
 
-**AT-03: Sails hold when stopped** (FR-04)
+**AT-03: Motor powers down when stopped** (FR-04)
 - **Given:** The sails have turned and then stopped, and a meter is in series with the ULN2003 board's 5 V feed only.
-- **When:** The operator watches the coil LEDs on the ULN2003 board, reads the meter, and gently tries to turn the coupler by hand.
-- **Then:** At least one coil LED stays lit, and the meter reads between 50 mA and 300 mA. The operator also notes whether the coupler resists being turned by hand, as information only and not as a pass condition.
+- **When:** The operator waits 5 s after the sails stop, then reads the meter and touches the motor.
+- **Then:** The meter reads below 10 mA, and the motor cools over the next few minutes.
 
 **AT-04: Sail Speed range, default and rounding** (FR-05, FR-06, FR-07)
 - **Given:** The firmware runs for the first time after a full flash erase, and Sail Speed has never been set.

@@ -77,7 +77,7 @@ inline Ramp step(Ramp r, float goal, uint32_t now_ms) {
 inline float max_speed(const Ramp &r) { return std::max(std::fabs(r.speed), 1.0f); }
 
 // The target after the re-base to 0: ahead in the direction of the speed, or
-// 0 to stop and hold.
+// 0 to stop.
 inline int32_t aim(const Ramp &r) { return r.speed > 0 ? kAimSteps : r.speed < 0 ? -kAimSteps : 0; }
 
 }  // namespace mill_ramp

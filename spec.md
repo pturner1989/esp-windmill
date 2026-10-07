@@ -149,7 +149,7 @@ The 28BYJ-48 has far more torque than these sails need, so the risk isn't stalli
 
 ### Sleep behaviour
 
-Set `sleep_when_done: false` so the coils stay energised and hold the sails still when stopped, otherwise they drift in a draught. That costs about 200mA and the warmth noted above. If it runs too hot in the finished cap, switch to `true` and accept a little drift.
+Set `sleep_when_done: true` so the coils power down once the sails stop. Holding them energised cost about 200mA and made the motor hot for no real gain: the 64:1 gearbox makes the sails hard to back-drive, so they barely drift unpowered.
 
 ## Lighting
 
@@ -233,7 +233,7 @@ The C3, the ULN2003 and the 4-pin board header sit on a small ply electronics pl
 
 - **Electronics bay.** Build a light-tight black card bay around the plate at the back of the ground floor, with its own ceiling. It must hide the electronics from the doorway as well as from above, because the door glow (pixel 0) and the door lamp (pixel 3) sit right there. Measure the base former and the door height before sizing the plate; keep the electronics under about 30mm tall.
 - **Light sources.** Desolder the ULN2003 board's four step LEDs; they flash with every step. Paint over the C3's red power LED and blue LED with black paint.
-- **Heat.** The ULN2003 dissipates about 0.3-0.4W the whole time it holds the sails. Leave a vent gap low in the bay so warm air can leave.
+- **Heat.** The ULN2003 dissipates about 0.3-0.4W while the sails turn, and nothing once they stop. Leave a vent gap low in the bay so warm air can leave.
 - **Doorbell.** The button is a small tactile switch set into the wall beside the door as a bell push, so the mill works on its own before any scenery exists. Its two wires run inside into the ground floor: one to the button pin of the 4-pin plug, the other to its GND.
 - **Antenna.** Keep the ULN2003 apart from the ESP, and the ESP's antenna end (opposite the USB-C socket) away from any metal. If WiFi is marginal, that's the first thing to move.
 
@@ -322,7 +322,7 @@ stepper:
     pin_d: GPIO4
     max_speed: 170 steps/s
     step_mode: FULL_STEP
-    sleep_when_done: false
+    sleep_when_done: true
 
 globals:
   - id: sails_running
@@ -467,7 +467,7 @@ script:
 ### Notes
 
 - `logger: baud_rate: 0` disables serial logging. On the C3 the USB serial shares pins with normal operation and leaving it on can cause odd behaviour once unplugged.
-- In the sketch, the sails run by setting the target to 2 billion steps, and turning off sets the target to the current position, which stops them at once. The firmware instead ramps: every 20 ms a tick moves the speed toward the goal that "Sails Turning", "Reverse Rotation" and "Sail Speed" set, re-bases the position to 0 and aims 1000 steps ahead in the direction of the speed (or at 0 to stop and hold). The stepper's own acceleration stays off, because it drops at once to a lower speed. The ramp maths is in `include/mill_ramp.h`, with host tests.
+- In the sketch, the sails run by setting the target to 2 billion steps, and turning off sets the target to the current position, which stops them at once. The firmware instead ramps: every 20 ms a tick moves the speed toward the goal that "Sails Turning", "Reverse Rotation" and "Sail Speed" set, re-bases the position to 0 and aims 1000 steps ahead in the direction of the speed (or at 0 to stop, which powers the coils down). The stepper's own acceleration stays off, because it drops at once to a lower speed. The ramp maths is in `include/mill_ramp.h`, with host tests.
 - `internal: true` on the pixel strip hides the raw 4-pixel entity from Home Assistant so only the three meaningful groups appear.
 - Both lights are off at boot and the sails are stopped. After a power cut you want a dark, still mill, not a motor running unattended.
 - **The Mill Button** (`packages/mill_controls.yaml`). A short press (50–500 ms) turns the whole mill on or off. A long press (hold 1–5 s, then release) reverses the turning sails: they slow to a stop, then speed up the other way. It does nothing while they are stopped. Other presses do nothing.
