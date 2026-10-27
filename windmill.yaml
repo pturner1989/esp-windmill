@@ -23,14 +23,17 @@ esphome:
   project:
     name: pturner1989.esp-windmill
     version: "1.0"
-  # The disco maths and its glue, used by the "Disco" light effects, and the
-  # sails maths, used by the sails tick. A package cannot hold this node-level
-  # key, so the hub must copy it too.
+  # The disco maths and its glue, used by the "Disco" light effects, the sails
+  # maths, used by the sails tick, and the WLED maths and its glue, used by
+  # the WLED listeners and the "WLED" light effects. A package cannot hold
+  # this node-level key, so the hub must copy it too.
   includes:
     - include/mill_disco.h
     - include/mill_disco_esphome.h
     - include/mill_ramp.h
     - include/mill_ramp_esphome.h
+    - include/mill_wled.h
+    - include/mill_wled_esphome.h
 
 esp32:
   board: esp32-c3-devkitm-1
@@ -70,3 +73,4 @@ packages:
   lights: !include packages/mill_lights.yaml
   controls: !include packages/mill_controls.yaml
   disco: !include packages/mill_disco.yaml
+  wled: !include packages/mill_wled.yaml

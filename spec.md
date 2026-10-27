@@ -471,6 +471,7 @@ script:
 - `internal: true` on the pixel strip hides the raw 4-pixel entity from Home Assistant so only the three meaningful groups appear.
 - Both lights are off at boot and the sails are stopped. After a power cut you want a dark, still mill, not a motor running unattended.
 - **The Mill Button** (`packages/mill_controls.yaml`). A short press (50–500 ms) turns the whole mill on or off. A long press (hold 1–5 s, then release) reverses the turning sails: they slow to a stop, then speed up the other way. It does nothing while they are stopped. Other presses do nothing.
+- **WLED** (`packages/mill_wled.yaml`). Every light offers a "WLED" effect that follows a WLED device on the network. A WLED sync notification (UDP 21324) sets all four pixels to the WLED's colour and brightness. A WLED "DDP" network output aimed at the mill, 4 LEDs long (UDP 4048), or a WLED realtime stream on 21324, sets each pixel from the WLED's own effect, until it stops. The effect writes only the light's own pixel, so the 60% cap applies, and it is off at boot like every effect. The decoding is in `include/mill_wled.h`, with host tests.
 - **The Mill Button in disco.** A short press turns the mill off as it does outside disco: the sails spin down over about 3 s, all four lights fade off, and "Disco Mode" turns off. A long press leaves disco: all four lights take the lamplight look within 4 s, and the sails keep their speed and direction, with no reversal. Other presses do nothing. The button never starts disco. The button needs no WiFi or HA, so it acts the same with no network, and one short press always stops the whole mill (the sails take about 3 s to spin down).
 
 ## Mounting
@@ -543,6 +544,18 @@ Do these on the bench once the button and all four pixels work. "Disco Mode", "D
 - [ ] Repeat the two button checks with the WiFi access point off: the chase keeps running and the button acts the same
 - [ ] Cut the power in disco: the mill comes back dark and stopped, with "Disco Mode" off
 
+### WLED checks by eye
+
+Do these on the bench with a WLED device on the same network.
+
+- [ ] Turn on "Send notifications" in the WLED's Sync settings and pick "WLED" on all four lights: the pixels stay dark until the WLED changes, then all four take the WLED's colour within a second
+- [ ] Change the WLED's brightness to its lowest, then turn the WLED off: the pixels dim with it, then go dark
+- [ ] Add a "DDP RGB" output of 4 LEDs aimed at the mill and run a WLED chase effect: the four pixels follow the WLED, LED 0 on the door lamp
+- [ ] Remove the DDP output: within 3 s the pixels go back to the WLED's sync colour
+- [ ] With the WLED on full white at full brightness, each pixel looks the same as when HA sets that light to white at 100% with no effect (the 60% cap holds)
+- [ ] Turn on "Disco Mode", then pick "WLED" on one light: disco ends and the other three take the lamplight look
+- [ ] Cut the power with "WLED" on: the mill comes back dark and stopped
+
 ### Phase 2, the drive mock-up
 
 - [ ] Card mock-up of the cap interior, check the 28BYJ-48 actually fits
@@ -587,8 +600,9 @@ Lift the mill off its electronics plate:
 3. At the hub, the four coil wires go to a spare ULN2003, the data line to a spare RMT channel, the button line to a spare input, 5V and GND to the bus.
 4. Move the stepper and light blocks from this config into the hub's config, renaming ids to avoid collisions.
    Copy `include/` with `packages/`, and add the same `esphome: includes:` line to the hub's config
-   (`include/mill_disco.h` and `include/mill_disco_esphome.h`). The light effects call these headers,
-   and a package cannot hold that line.
+   (the `include/mill_disco*.h`, `include/mill_ramp*.h` and `include/mill_wled*.h` headers). The light effects,
+   the sails tick and the WLED listeners call these headers, and a package cannot hold that line.
+   The WLED package listens on UDP ports 21324 and 4048, so leave it out if the hub already uses them.
 5. Remove the C3 and the ULN2003 from the plate, or leave them in place unpowered. The hub then supplies 5V to the 4-pin connector, and a hub ULN2003 drives the motor plug.
 
 The one thing to watch: stepper coil signals over a run of a metre or more are more susceptible to noise than you'd expect. Use twisted pairs and keep the run away from pixel data. If the sails start stuttering after the move, that's why.

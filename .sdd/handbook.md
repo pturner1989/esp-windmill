@@ -41,14 +41,18 @@ packages/
   mill_lights.yaml         # Pixel strip and partition lights
   mill_controls.yaml       # Button and scripts
   mill_disco.yaml          # Disco Mode switch and its scripts
+  mill_wled.yaml           # UDP listeners for the "WLED" light effect
 include/
   mill_disco.h             # Disco maths: pure functions, host-tested
   mill_disco_esphome.h     # Disco glue: shared state, millis(), pixel write
   mill_ramp.h              # Sails ramp maths: rpm to steps/s, the speed ramp. Host-tested
   mill_ramp_esphome.h      # Sails ramp glue: the shared ramp, millis()
+  mill_wled.h              # WLED packet decoding and pixel colours. Host-tested
+  mill_wled_esphome.h      # WLED glue: shared state, millis(), pixel write
 tests/
   mill_disco_test.cpp      # Header tests for include/mill_disco.h
   mill_ramp_test.cpp       # Header tests for include/mill_ramp.h
+  mill_wled_test.cpp       # Header tests for include/mill_wled.h
 scripts/
   check.sh                 # Pre-commit checks: header tests, lint, config, compile
   test_check.sh            # Tests for check.sh, the node settings and the packages
@@ -88,7 +92,7 @@ Every change must keep these true. A review must check them.
    (the pixels are RGBW, so the cap has four channels),
    not only in scripts, so a Home Assistant command cannot exceed it.
    A partition light applies its own correction, not the strip's, so set it on the strip and on every partition.
-   Disco writes only through the partition lights' own effects (`it[0]` in the "Disco" effect),
+   Disco and WLED write only through the partition lights' own effects (`it[0]` in the "Disco" and "WLED" effects),
    never to the strip `mill_pixels` and never with `addressable_set`.
 3. **Sail speed stays in 1–9 rpm (about 34–307 steps/s).** Set the bounds on the number entity. Do not allow a path that sets speed outside this range.
    The ramp passes through lower speeds on its way to and from a stop; that is allowed.
@@ -127,7 +131,7 @@ There is no unit-test framework for ESPHome YAML. Testing has four levels:
 - To validate without real credentials, copy `secrets.example.yaml` to `secrets.yaml`.
 - A task that changes behaviour must state which bench-checklist items verify it.
   Write its acceptance criteria as observable behaviour (for example "sails stop within one step when the button is held for 1s").
-- Header tests use no framework. `tests/mill_disco_test.cpp` and `tests/mill_ramp_test.cpp` have local `CHECK` and
+- Header tests use no framework. `tests/mill_disco_test.cpp`, `tests/mill_ramp_test.cpp` and `tests/mill_wled_test.cpp` have local `CHECK` and
   `CHECK_NEAR` macros and exit 1 on any failed check. `scripts/check.sh` builds each with
   `g++ -std=c++17 -Wall -Wextra -Werror -Iinclude` into `.esphome/host-tests/` and runs them first.
   Test only the pure headers. The glue headers need ESPHome.
@@ -150,7 +154,7 @@ Run these before every commit. All must pass.
 `scripts/check.sh` runs the first four.
 
 ```bash
-for t in mill_disco_test mill_ramp_test; do
+for t in mill_disco_test mill_ramp_test mill_wled_test; do
   g++ -std=c++17 -Wall -Wextra -Werror -Iinclude tests/$t.cpp -o .esphome/host-tests/$t && .esphome/host-tests/$t
 done
 yamllint -s .
