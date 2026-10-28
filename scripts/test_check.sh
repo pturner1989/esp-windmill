@@ -326,7 +326,7 @@ test_sail_speed_rounding() {
   expected="set_action/then/if/condition lambda return mill_ramp::round_rpm(x) == x;"
   expected+=$'\n'"set_action/then/if/then lambda id(mill_sail_speed).publish_state(x);"
   expected+=$'\n'"set_action/then/if/else delay 0ms"
-  expected+=$'\n'"set_action/then/if/else number.set id=mill_sail_speed;value=return mill_ramp::round_rpm(x);"
+  expected+=$'\n'"set_action/then/if/else lambda id(mill_sail_speed).make_call().set_value(mill_ramp::round_rpm(x)).perform();"
   expect_same "Sail Speed shows an on-step value, and sets an off-step value rounded one loop pass later" \
     "$expected" "$(awk -F '\t' '$1 == "number/mill_sail_speed" && $2 ~ /^set_action/ { print $2 " " $3 " " $4 }' <<< "$config_calls")"
   expected="on_value/then/if/condition lambda return !mill_ramp::rpm_ok(x);"
@@ -342,19 +342,17 @@ test_sails_tick() {
   expect_same "no stop jumps to the current position" "" "$found"
   tick=$(flat "$(list_item "$(section interval "$package")" '^  - interval: 20ms$')")
   expect_setting "the tick aims in the forward direction from its substitution" "$tick" \
-    'target: !lambda "return \$\{sails_forward_direction\} \* mill_ramp::aim\(mill_ramp::shared\(\)\);"'
+    'id\(mill_sails\)\.set_target\(\$\{sails_forward_direction\} \* mill_ramp::aim\(mill_ramp::shared\(\)\)\);'
   [[ $config_status -ne 0 ]] && return
   direction=$(sed -En "s/^  sails_forward_direction: '?(-?1)'?$/\1/p" <<< "$(section substitutions)")
   tick=$(list_item "$(section interval)" '^  - interval: 20ms$')
   expected="then"$'\t'"lambda"$'\t'"mill_ramp::tick_now(mill_ramp::goal(id(mill_sails_turn).state, id(mill_sails_reverse), id(mill_sail_speed).state));"
-  expected+=$'\n'"then"$'\t'"stepper.set_speed"$'\t'"id=mill_sails;speed=return mill_ramp::max_speed(mill_ramp::shared());"
-  expected+=$'\n'"then"$'\t'"stepper.report_position"$'\t'"id=mill_sails;position=0"
-  expected+=$'\n'"then"$'\t'"stepper.set_target"$'\t'"id=mill_sails;target=return ${direction:-unset} * mill_ramp::aim(mill_ramp::shared());"
+  expected+=$'\n'"then"$'\t'"lambda"$'\t'"id(mill_sails).set_max_speed(mill_ramp::max_speed(mill_ramp::shared())); id(mill_sails).on_update_speed();"
+  expected+=$'\n'"then"$'\t'"lambda"$'\t'"id(mill_sails).report_position(0); id(mill_sails).set_target(${direction:-unset} * mill_ramp::aim(mill_ramp::shared()));"
   expect_same "every 20 ms the tick ramps toward the goal of the switches and Sail Speed, then re-bases and aims the stepper" \
     "$expected" "$(action_calls - <<< "interval:"$'\n'"$tick" | cut -f 2-)"
-  found=$(awk -F '\t' '$3 ~ /^stepper\./ { print $1 " " $3 }' <<< "$config_calls")
-  expect_same "only the tick drives the stepper" \
-    $'interval/- stepper.set_speed\ninterval/- stepper.report_position\ninterval/- stepper.set_target' "$found"
+  found=$(awk -F '\t' '$3 ~ /^stepper\./ || $4 ~ /mill_sails\)\.(set_|report_|on_update)/ { print $1 " " $3 }' <<< "$config_calls")
+  expect_same "only the tick drives the stepper" $'interval/- lambda\ninterval/- lambda' "$found"
 }
 
 test_sails_reverse() {

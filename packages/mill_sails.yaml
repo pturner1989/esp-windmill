@@ -85,12 +85,11 @@ number:
           then:
             - lambda: "id(mill_sail_speed).publish_state(x);"
           # Set the rounded value one loop pass later. The number saves the raw
-          # value after this action, so the rounded value is saved last.
+          # value after this action, so the rounded value is saved last. A
+          # lambda action, not number.set: see the tick.
           else:
             - delay: 0ms
-            - number.set:
-                id: mill_sail_speed
-                value: !lambda "return mill_ramp::round_rpm(x);"
+            - lambda: "id(mill_sail_speed).make_call().set_value(mill_ramp::round_rpm(x)).perform();"
     # A restored value outside 1-9 rpm (older firmware saved steps/s) or NaN
     # becomes 5 rpm, saved, so HA shows the speed the tick uses.
     on_value:
@@ -112,12 +111,13 @@ interval:
       - lambda: |-
           mill_ramp::tick_now(mill_ramp::goal(id(mill_sails_turn).state, id(mill_sails_reverse),
                                               id(mill_sail_speed).state));
-      - stepper.set_speed:
-          id: mill_sails
-          speed: !lambda "return mill_ramp::max_speed(mill_ramp::shared());"
-      - stepper.report_position:
-          id: mill_sails
-          position: 0
-      - stepper.set_target:
-          id: mill_sails
-          target: !lambda "return ${sails_forward_direction} * mill_ramp::aim(mill_ramp::shared());"
+      # The same calls as stepper.set_speed, report_position and set_target.
+      # ESPHome 2026.10.0 builds a lambda in an action option before the
+      # headers in "includes", so it cannot name mill_ramp: a lambda action
+      # can.
+      - lambda: |-
+          id(mill_sails).set_max_speed(mill_ramp::max_speed(mill_ramp::shared()));
+          id(mill_sails).on_update_speed();
+      - lambda: |-
+          id(mill_sails).report_position(0);
+          id(mill_sails).set_target(${sails_forward_direction} * mill_ramp::aim(mill_ramp::shared()));
