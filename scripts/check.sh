@@ -24,7 +24,7 @@ fi
 
 echo "check: header tests"
 mkdir -p .esphome/host-tests
-for test in mill_disco_test mill_ramp_test; do
+for test in mill_disco_test mill_ramp_test mill_wled_test; do
   g++ -std=c++17 -Wall -Wextra -Werror -Iinclude "tests/$test.cpp" -o ".esphome/host-tests/$test"
   ".esphome/host-tests/$test"
 done

@@ -102,7 +102,7 @@ test_full_pass_with_stubs() {
   dir=$(new_repo with-secrets)
   run_check "$dir" esphome yamllint g++
   expected=""
-  for test in mill_disco_test mill_ramp_test; do
+  for test in mill_disco_test mill_ramp_test mill_wled_test; do
     expected+="g++ -std=c++17 -Wall -Wextra -Werror -Iinclude tests/$test.cpp -o .esphome/host-tests/$test"
     expected+=$'\n'".esphome/host-tests/$test"$'\n'
   done
@@ -270,8 +270,8 @@ test_node_settings() {
   expect_same "node config holds no secrets" "" "$(grep -n '!secret' "$repo/windmill.yaml" || true)"
   expect_setting "node offers its GitHub config for adoption" "$(section dashboard_import)" \
     '^  package_import_url: github://pturner1989/esp-windmill/windmill\.yaml@main$'
-  expect_setting "node includes the two disco headers and the two ramp headers" "$(flat "$(section esphome)")" \
-    ' includes: - [^ ]*/include/mill_disco\.h - [^ ]*/include/mill_disco_esphome\.h - [^ ]*/include/mill_ramp\.h - [^ ]*/include/mill_ramp_esphome\.h '
+  expect_setting "node includes the disco, ramp and WLED headers" "$(flat "$(section esphome)")" \
+    ' includes: - [^ ]*/include/mill_disco\.h - [^ ]*/include/mill_disco_esphome\.h - [^ ]*/include/mill_ramp\.h - [^ ]*/include/mill_ramp_esphome\.h - [^ ]*/include/mill_wled\.h - [^ ]*/include/mill_wled_esphome\.h '
 }
 
 test_sails_settings() {
@@ -326,7 +326,7 @@ test_sail_speed_rounding() {
   expected="set_action/then/if/condition lambda return mill_ramp::round_rpm(x) == x;"
   expected+=$'\n'"set_action/then/if/then lambda id(mill_sail_speed).publish_state(x);"
   expected+=$'\n'"set_action/then/if/else delay 0ms"
-  expected+=$'\n'"set_action/then/if/else number.set id=mill_sail_speed;value=return mill_ramp::round_rpm(x);"
+  expected+=$'\n'"set_action/then/if/else lambda id(mill_sail_speed).make_call().set_value(mill_ramp::round_rpm(x)).perform();"
   expect_same "Sail Speed shows an on-step value, and sets an off-step value rounded one loop pass later" \
     "$expected" "$(awk -F '\t' '$1 == "number/mill_sail_speed" && $2 ~ /^set_action/ { print $2 " " $3 " " $4 }' <<< "$config_calls")"
   expected="on_value/then/if/condition lambda return !mill_ramp::rpm_ok(x);"
@@ -342,19 +342,17 @@ test_sails_tick() {
   expect_same "no stop jumps to the current position" "" "$found"
   tick=$(flat "$(list_item "$(section interval "$package")" '^  - interval: 20ms$')")
   expect_setting "the tick aims in the forward direction from its substitution" "$tick" \
-    'target: !lambda "return \$\{sails_forward_direction\} \* mill_ramp::aim\(mill_ramp::shared\(\)\);"'
+    'id\(mill_sails\)\.set_target\(\$\{sails_forward_direction\} \* mill_ramp::aim\(mill_ramp::shared\(\)\)\);'
   [[ $config_status -ne 0 ]] && return
   direction=$(sed -En "s/^  sails_forward_direction: '?(-?1)'?$/\1/p" <<< "$(section substitutions)")
   tick=$(list_item "$(section interval)" '^  - interval: 20ms$')
   expected="then"$'\t'"lambda"$'\t'"mill_ramp::tick_now(mill_ramp::goal(id(mill_sails_turn).state, id(mill_sails_reverse), id(mill_sail_speed).state));"
-  expected+=$'\n'"then"$'\t'"stepper.set_speed"$'\t'"id=mill_sails;speed=return mill_ramp::max_speed(mill_ramp::shared());"
-  expected+=$'\n'"then"$'\t'"stepper.report_position"$'\t'"id=mill_sails;position=0"
-  expected+=$'\n'"then"$'\t'"stepper.set_target"$'\t'"id=mill_sails;target=return ${direction:-unset} * mill_ramp::aim(mill_ramp::shared());"
+  expected+=$'\n'"then"$'\t'"lambda"$'\t'"id(mill_sails).set_max_speed(mill_ramp::max_speed(mill_ramp::shared())); id(mill_sails).on_update_speed();"
+  expected+=$'\n'"then"$'\t'"lambda"$'\t'"id(mill_sails).report_position(0); id(mill_sails).set_target(${direction:-unset} * mill_ramp::aim(mill_ramp::shared()));"
   expect_same "every 20 ms the tick ramps toward the goal of the switches and Sail Speed, then re-bases and aims the stepper" \
     "$expected" "$(action_calls - <<< "interval:"$'\n'"$tick" | cut -f 2-)"
-  found=$(awk -F '\t' '$3 ~ /^stepper\./ { print $1 " " $3 }' <<< "$config_calls")
-  expect_same "only the tick drives the stepper" \
-    $'interval/- stepper.set_speed\ninterval/- stepper.report_position\ninterval/- stepper.set_target' "$found"
+  found=$(awk -F '\t' '$3 ~ /^stepper\./ || $4 ~ /mill_sails\)\.(set_|report_|on_update)/ { print $1 " " $3 }' <<< "$config_calls")
+  expect_same "only the tick drives the stepper" $'interval/- lambda\ninterval/- lambda' "$found"
 }
 
 test_sails_reverse() {
@@ -687,7 +685,7 @@ test_light_effects() {
     fail "flicker search finds plain flicker effects only" "found: $found"
   fi
   found=$(grep -nE 'mill_pixels|addressable_set' "$repo"/include/*.h || true)
-  expect_same "disco headers do not name the strip or use addressable_set" "" "$found"
+  expect_same "headers do not name the strip or use addressable_set" "" "$found"
   [[ $config_status -ne 0 ]] && return
   lights=$(section light)
   for entry in "mill_door_lamp:0:Mill Door Lamp" "mill_door_glow:1:Mill Door Glow" \
@@ -696,7 +694,7 @@ test_light_effects() {
     light=$(list_item "$lights" "^    id: $id$")
     effects=$(effect_list "$light")
     # Each line: type|name|update_interval. The interior lights also offer Lamplight.
-    expected="addressable_lambda|Disco|16ms"
+    expected=$'addressable_lambda|Disco|16ms\naddressable_lambda|WLED|16ms'
     [[ $id != mill_door_lamp ]] && expected=$'addressable_flicker|Lamplight|50ms\n'"$expected"
     expect_same "$name offers exactly the effects $(cut -d '|' -f 2 <<< "$expected" | tr '\n' ' ')" \
       "$expected" "$(cut -d '|' -f 1-3 <<< "$effects")"
@@ -710,6 +708,8 @@ test_light_effects() {
     fi
     expect_setting "$name Disco only renders its own pixel ($index) through the light" "$(flat "$light")" \
       "name: Disco update_interval: 16ms lambda: !lambda \\|- mill_disco::render\\(it, $index\\); "
+    expect_setting "$name WLED only renders its own pixel ($index) through the light" "$(flat "$light")" \
+      "name: WLED update_interval: 16ms lambda: !lambda \\|- mill_wled::render\\(it, $index\\); "
   done
   found=$(plain_flickers "$lights")
   if [[ -z $found ]]; then
@@ -1063,6 +1063,26 @@ test_controls_boundaries() {
   fi
 }
 
+test_wled_listeners() {
+  local package text found listeners entry id port fn listener
+  package="$repo/packages/mill_wled.yaml"
+  expect_setting "node includes the WLED package" "$(section packages "$(cat "$repo/windmill.yaml")")" \
+    '^  wled: !include packages/mill_wled\.yaml$'
+  text=$(sed -E 's/(^|[[:space:]])#.*$//' "$package" 2> /dev/null || true)
+  found=$( (strip_writes "$package"; grep -nE 'mill_pixels|light\.|udp\.write' <<< "$text") || true)
+  expect_same "WLED package writes no light and sends no packet" "" "$found"
+  [[ $config_status -ne 0 ]] && return
+  listeners=$(section udp)
+  for entry in "mill_wled_sync:21324:receive_sync_now" "mill_wled_ddp:4048:receive_ddp_now"; do
+    IFS=: read -r id port fn <<< "$entry"
+    listener=$(list_item "$listeners" "^  [ -] id: $id$")
+    expect_setting "$id listens on port $port" "$listener" "^    port: $port$"
+    expect_setting "$id listens on every address of the node" "$listener" "^    listen_address: 255\.255\.255\.255$"
+    expect_setting "$id passes each packet to mill_wled::$fn" "$(flat "$(item_key "$listener" on_receive)")" \
+      "lambda: !lambda \\|- mill_wled::$fn\\(data\\); "
+  done
+}
+
 # turned_on FILE... prints the id of each light that an action in FILE turns on.
 turned_on() {
   { action_calls "$@" 2> /dev/null || true; } | awk -F '\t' '$3 ~ /^light\.(turn_on|control|toggle)$/ { print $4 }' |
@@ -1095,6 +1115,7 @@ test_lamplight_script
 test_disco_mode
 test_disco_follows_lights
 test_disco_tempo_and_rate
+test_wled_listeners
 test_controls_boundaries
 
 echo "$passed passed, $failed failed"

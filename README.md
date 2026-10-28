@@ -182,3 +182,26 @@ Set the tempo with "Disco BPM" (60 to 180 in steps of 0.1) and the flashes per b
 effect at once and keeps the beat. 2× is allowed only at 90 BPM or below, so no pixel flashes more than
 three times a second: above 90 BPM the mill refuses 2× and HA shows 1×, and a tempo above 90 BPM drops
 2× to 1×. Both controls go back to 120 BPM and 1× after every restart.
+
+## WLED
+
+Every light offers a "WLED" effect, so the mill can follow a WLED device on the same network.
+Pick "WLED" on a light in HA, or on all four with a light group. The node always listens; a light shows
+what it hears only while "WLED" is its effect. Each light keeps its 60% cap and its own brightness,
+and the effect is never restored at boot.
+
+Two ways to feed it, set up on the WLED device:
+
+- **Sync, colour only.** In WLED, Config, Sync Interfaces, turn on "Send notifications" (UDP port
+  21324, the default). When the WLED changes colour or brightness, all four pixels take its primary
+  colour times its brightness, and keep it until the next change. The WLED sends only on a change, so
+  after a restart of the mill the pixels stay dark until the WLED changes once.
+- **Live effect, pixel by pixel.** In WLED, Config, LED Preferences, add an output of type
+  "DDP RGB" (or "DDP RGBW"), 4 LEDs long, with the mill's IP address. The WLED then streams its own
+  effect to the mill: LED 0 to the Door Lamp, 1 to the Door Glow, 2 to the Stone Floor Window and 3 to
+  the Bin Floor Window. If the stream stops for 2.5 s, the pixels go back to the sync colour (or dark).
+  The WLED UDP realtime protocols (WARLS, DRGB, DRGBW, DNRGB on port 21324, as sent by Hyperion and
+  similar tools) work the same way, with the timeout the sender sets.
+
+A light that picks "WLED" while "Disco Mode" is on ends disco, as any other effect does: the other
+lights take the lamplight look. The Mill Button turns the mill off as usual.

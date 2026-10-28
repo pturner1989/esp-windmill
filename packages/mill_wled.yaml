@@ -1,0 +1,30 @@
+# WLED: two UDP listeners take the packets that an external WLED device sends.
+# The "WLED" effect of each light (lights package) shows what they carry.
+# Exposes ids: mill_wled_sync (UDP listener, port 21324),
+#   mill_wled_ddp (UDP listener, port 4048).
+# Each listener passes every packet to the glue in
+# include/mill_wled_esphome.h, which keeps the latest colours in one shared
+# state. The listeners write no pixel and publish no state, so a packet
+# changes nothing until a light picks "WLED", and the light writes only its
+# own pixel through its cap.
+# - Port 21324 is WLED's sync port. The WLED's notifications ("Send
+#   notifications" in the WLED Sync settings) set all four pixels to the
+#   WLED's colour and brightness. The WLED realtime protocols (WARLS, DRGB,
+#   DRGBW, DNRGB) on the same port set each pixel, until their timeout.
+# - Port 4048 is DDP. A WLED "DDP RGB" or "DDP RGBW" network output aimed at
+#   this node, 4 LEDs long, streams the WLED's own effect, one LED to each
+#   pixel (door lamp, door glow, stone floor window, bin floor window).
+#   A stream that stops for 2.5 s gives way to the sync colour.
+# Both listeners bind the node's own address, so they take broadcast and
+# direct packets. They never send.
+
+udp:
+  - id: mill_wled_sync
+    port: 21324
+    on_receive:
+      - lambda: "mill_wled::receive_sync_now(data);"
+
+  - id: mill_wled_ddp
+    port: 4048
+    on_receive:
+      - lambda: "mill_wled::receive_ddp_now(data);"
