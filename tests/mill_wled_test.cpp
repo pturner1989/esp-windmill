@@ -2,8 +2,10 @@
 // The program prints each failed check and exits 1 if any check fails.
 #include "mill_wled.h"
 
+#include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <vector>
 
 using namespace mill_wled;
@@ -165,20 +167,35 @@ void test_live_timeout_survives_the_clock_wrap() {
 
 void test_ddp_rgb_and_rgbw() {
   Wled w = ddp(Wled{}, ddp_packet(0x0B, 0, {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15}), 0);
-  CHECK(same(pixel(w, 0, 0), {1, 2, 3, 0}));
-  CHECK(same(pixel(w, 3, 0), {10, 11, 12, 0}));
+  CHECK(same(pixel(w, 0, 0), linear(Rgbw{1, 2, 3, 0})));
+  CHECK(same(pixel(w, 3, 0), linear(Rgbw{10, 11, 12, 0})));
   w = ddp(w, ddp_packet(0x1B, 8, {1, 2, 3, 4, 5, 6, 7, 8}), 10);  // RGBW from LED 2
-  CHECK(same(pixel(w, 1, 10), {4, 5, 6, 0}));
-  CHECK(same(pixel(w, 2, 10), {1, 2, 3, 4}));
-  CHECK(same(pixel(w, 3, 10), {5, 6, 7, 8}));
+  CHECK(same(pixel(w, 1, 10), linear(Rgbw{4, 5, 6, 0})));
+  CHECK(same(pixel(w, 2, 10), linear(Rgbw{1, 2, 3, 4})));
+  CHECK(same(pixel(w, 3, 10), linear(Rgbw{5, 6, 7, 8})));
   w = ddp(w, ddp_packet(0x0B, 3, {20, 21, 22}, true), 20);  // timecode header, LED 1
-  CHECK(same(pixel(w, 1, 20), {20, 21, 22, 0}));
+  CHECK(same(pixel(w, 1, 20), linear(Rgbw{20, 21, 22, 0})));
+}
+
+// WLED sends 255/150/60 as 255/58/4 after its gamma 2.8. The mill takes that
+// back to linear, so the light's own gamma lights the LED as WLED meant.
+void test_ddp_undoes_wled_gamma() {
+  CHECK(linear(uint8_t(0)) == 0);
+  CHECK(linear(uint8_t(255)) == 255);
+  CHECK(linear(uint8_t(58)) == 150);
+  for (int v = 1; v < 256; v++) CHECK(linear(uint8_t(v)) >= linear(uint8_t(v - 1)));
+  for (int v = 64; v < 256; v++) {
+    uint8_t sent = uint8_t(std::lround(255.0 * std::pow(v / 255.0, 2.8)));
+    CHECK(std::abs(linear(sent) - v) <= 2);
+  }
+  Wled w = ddp(Wled{}, ddp_packet(0x0B, 0, {255, 58, 4}), 0);
+  CHECK(same(pixel(w, 0, 0), {255, 150, linear(uint8_t(4)), 0}));
 }
 
 void test_ddp_times_out() {
   Wled w = sync(Wled{}, notifier(255, 5, 5, 5, 5), 0);
   w = ddp(w, ddp_packet(0x0B, 0, {1, 2, 3}), 100);
-  CHECK(same(pixel(w, 0, 100 + kDdpTimeoutMs - 1), {1, 2, 3, 0}));
+  CHECK(same(pixel(w, 0, 100 + kDdpTimeoutMs - 1), linear(Rgbw{1, 2, 3, 0})));
   CHECK(same(pixel(w, 0, 100 + kDdpTimeoutMs), {5, 5, 5, 5}));
 }
 
@@ -195,6 +212,7 @@ int main() {
   test_timeout_255_and_0();
   test_live_timeout_survives_the_clock_wrap();
   test_ddp_rgb_and_rgbw();
+  test_ddp_undoes_wled_gamma();
   test_ddp_times_out();
   if (failures > 0) {
     std::printf("mill_wled_test: %d checks failed\n", failures);

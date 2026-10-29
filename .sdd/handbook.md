@@ -88,10 +88,13 @@ Every change must keep these true. A review must check them.
 
 1. **Boot state is dark and stopped.** After any reset or power cut, lights are off and the sails do not turn.
    Never use `restore_mode: RESTORE_*` or `restore_value` on anything that would start the motor or lights at boot.
-2. **Brightness cap is 60%.** Enforce it in firmware with `color_correct: [60%, 60%, 60%, 60%]`
+2. **Brightness cap is 60%, except on the two windows.** Enforce it in firmware with `color_correct: [60%, 60%, 60%, 60%]`
    (the pixels are RGBW, so the cap has four channels),
    not only in scripts, so a Home Assistant command cannot exceed it.
-   A partition light applies its own correction, not the strip's, so set it on the strip and on every partition.
+   A partition light applies its own correction, not the strip's, so set it on the strip, the door lamp and the door glow.
+   The Stone Floor Window and Bin Floor Window have `color_correct: [100%, 100%, 100%, 100%]`: they sit behind window
+   masks, which take most of their light (operator decision, 2026-10-29). ESPHome applies the cap before gamma 2.8,
+   so 60% holds a capped light to about 24% of full output.
    Disco and WLED write only through the partition lights' own effects (`it[0]` in the "Disco" and "WLED" effects),
    never to the strip `mill_pixels` and never with `addressable_set`.
 3. **Sail speed stays in 1–9 rpm (about 34–307 steps/s).** Set the bounds on the number entity. Do not allow a path that sets speed outside this range.

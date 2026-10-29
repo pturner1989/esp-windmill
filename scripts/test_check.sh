@@ -595,12 +595,15 @@ YAML
   fi
 }
 
-# expect_cap_and_off NAME ITEM checks that the light ITEM carries a 60% colour
-# correction on each of its four channels (red, green, blue and white) and
-# boots off.
+# expect_cap_and_off NAME ITEM [LEVEL] checks that the light ITEM carries a
+# colour correction of LEVEL (0.6, the 60% cap, by default; 1.0 for no cap) on
+# each of its four channels (red, green, blue and white) and boots off.
 expect_cap_and_off() {
-  expect_setting "$1 is capped at 60% on every channel, white included" \
-    "$(flat "$(item_key "$2" color_correct)")" '^ ?- 0\.6 - 0\.6 - 0\.6 - 0\.6 ?$'
+  local level=${3:-0.6} label v
+  [[ $level == 0.6 ]] && label="capped at 60%" || label="uncapped (100%)"
+  v=${level//./\\.}
+  expect_setting "$1 is $label on every channel, white included" \
+    "$(flat "$(item_key "$2" color_correct)")" "^ ?- $v - $v - $v - $v ?$"
   expect_setting "$1 boots off" "$2" '^    restore_mode: ALWAYS_OFF$'
 }
 
@@ -645,7 +648,12 @@ test_lights_settings() {
     expect_setting "$name lights only pixel $index" "$(flat "$(item_key "$light" segments)")" \
       "^ ?- id: mill_pixels from: $index to: $index reversed: false ?$"
     expect_setting "$name fades over 3 s by default" "$light" '^    default_transition_length: 3s$'
-    expect_cap_and_off "$name" "$light"
+    # The windows sit behind window masks, so they have no cap (2026-10-29).
+    if [[ $index == 2 || $index == 3 ]]; then
+      expect_cap_and_off "$name" "$light" 1.0
+    else
+      expect_cap_and_off "$name" "$light"
+    fi
   done
 }
 
@@ -1056,9 +1064,9 @@ test_controls_boundaries() {
     grep -qw -- "$id" <<< "$partitions" || outside+=" $id"
   done
   if [[ -n $ids && -z $outside ]]; then
-    pass "every light the lights and disco packages turn on is a capped partition light"
+    pass "every light the lights and disco packages turn on is one of the four partition lights"
   else
-    fail "every light the lights and disco packages turn on is a capped partition light" \
+    fail "every light the lights and disco packages turn on is one of the four partition lights" \
       "lights outside the four partitions:${outside:- none, but no light is turned on}"
   fi
 }
