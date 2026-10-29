@@ -19,6 +19,7 @@
 #pragma once
 
 #include <array>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 
@@ -26,6 +27,10 @@ namespace mill_wled {
 
 // A realtime frame with timeout byte 255 never times out.
 constexpr uint8_t kForever = 255;
+// The gamma a WLED device puts on the colours of its DDP output (WLED's
+// "Color gamma", 2.8 by default). The partition lights apply their own gamma
+// 2.8 on top, so DDP values are taken back to linear first.
+constexpr float kWledGamma = 2.8f;
 // DDP carries no timeout. WLED uses 2.5 s for its own network inputs.
 constexpr uint32_t kDdpTimeoutMs = 2500;
 // The shortest notifier packet that holds the white byte (byte 10).
@@ -49,6 +54,14 @@ struct Wled {
 inline int32_t since(uint32_t a, uint32_t b) { return int32_t(a - b); }
 
 inline uint8_t scale(uint8_t channel, uint8_t by) { return uint8_t((channel * by + 127) / 255); }
+
+// The linear value of a channel that WLED gamma-corrected with kWledGamma, so
+// the light's own gamma gives the LED the level WLED meant.
+inline uint8_t linear(uint8_t channel) {
+  return uint8_t(std::lround(255.0f * std::pow(channel / 255.0f, 1.0f / kWledGamma)));
+}
+
+inline Rgbw linear(Rgbw c) { return {linear(c.r), linear(c.g), linear(c.b), linear(c.w)}; }
 
 inline bool live_at(const Wled &w, uint32_t now) {
   return w.live_on && (w.live_forever || since(now, w.live_until_ms) < 0);
@@ -111,7 +124,8 @@ inline Wled receive_sync(Wled w, const uint8_t *data, size_t size, uint32_t now)
 
 // One DDP packet from UDP port 4048, received at `now`. Only version 1 data
 // packets count. Data type 0x1B is RGBW, any other type is RGB. The offset is
-// in bytes from the first LED.
+// in bytes from the first LED. WLED's DDP output carries its gamma-corrected
+// colours, so each channel is taken back to linear with linear().
 inline Wled receive_ddp(Wled w, const uint8_t *data, size_t size, uint32_t now) {
   if (size < kDdpHeader) return w;
   uint8_t flags = data[0];
@@ -125,7 +139,7 @@ inline Wled receive_ddp(Wled w, const uint8_t *data, size_t size, uint32_t now) 
   const uint8_t *p = data + header;
   for (size_t i = 0; i < length; i += channels) {
     uint32_t led = (offset + uint32_t(i)) / channels;
-    set_live(w, led, {p[i], p[i + 1], p[i + 2], uint8_t(channels == 4 ? p[i + 3] : 0)});
+    set_live(w, led, linear({p[i], p[i + 1], p[i + 2], uint8_t(channels == 4 ? p[i + 3] : 0)}));
   }
   return w;
 }

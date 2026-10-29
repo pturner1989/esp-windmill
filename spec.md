@@ -183,6 +183,8 @@ Glaze every window with tracing paper or a smear of white PVA on the inside of c
 
 Cap at 60% in software. Four pixels at full white is about 240mA and more light than a matchstick mill should ever emit. The colour you want is deep amber, roughly 255/120/40, not white.
 
+The two windows are the exception (decided 2026-10-29): behind their window masks they need full output, so their lights have no cap. ESPHome applies the cap before gamma 2.8, so the 60% cap holds the door lamp and door glow to about 24% of full output.
+
 ### Routing
 
 The string runs up the central passage alongside the motor wires. Twist the pixel data with its ground, and keep it separated from the four stepper leads where you can — stepper switching on an adjacent unshielded run is the likeliest cause of random pixel flicker in a build like this.
@@ -471,7 +473,7 @@ script:
 - `internal: true` on the pixel strip hides the raw 4-pixel entity from Home Assistant so only the three meaningful groups appear.
 - Both lights are off at boot and the sails are stopped. After a power cut you want a dark, still mill, not a motor running unattended.
 - **The Mill Button** (`packages/mill_controls.yaml`). A short press (50–500 ms) turns the whole mill on or off. A long press (hold 1–5 s, then release) reverses the turning sails: they slow to a stop, then speed up the other way. It does nothing while they are stopped. Other presses do nothing.
-- **WLED** (`packages/mill_wled.yaml`). Every light offers a "WLED" effect that follows a WLED device on the network. A WLED sync notification (UDP 21324) sets all four pixels to the WLED's colour and brightness. A WLED "DDP" network output aimed at the mill, 4 LEDs long (UDP 4048), or a WLED realtime stream on 21324, sets each pixel from the WLED's own effect, until it stops. The effect writes only the light's own pixel, so the 60% cap applies, and it is off at boot like every effect. The decoding is in `include/mill_wled.h`, with host tests.
+- **WLED** (`packages/mill_wled.yaml`). Every light offers a "WLED" effect that follows a WLED device on the network. A WLED sync notification (UDP 21324) sets all four pixels to the WLED's colour and brightness. A WLED "DDP" network output aimed at the mill, 4 LEDs long (UDP 4048), or a WLED realtime stream on 21324, sets each pixel from the WLED's own effect, until it stops. The effect writes only the light's own pixel, so the light's cap applies (60% on the door lamp and door glow, none on the windows), and it is off at boot like every effect. WLED's DDP output carries WLED's colour gamma, so the node takes DDP colours back to linear before the light applies its own gamma. The decoding is in `include/mill_wled.h`, with host tests.
 - **The Mill Button in disco.** A short press turns the mill off as it does outside disco: the sails spin down over about 3 s, all four lights fade off, and "Disco Mode" turns off. A long press leaves disco: all four lights take the lamplight look within 4 s, and the sails keep their speed and direction, with no reversal. Other presses do nothing. The button never starts disco. The button needs no WiFi or HA, so it acts the same with no network, and one short press always stops the whole mill (the sails take about 3 s to spin down).
 
 ## Mounting
@@ -552,7 +554,8 @@ Do these on the bench with a WLED device on the same network.
 - [ ] Change the WLED's brightness to its lowest, then turn the WLED off: the pixels dim with it, then go dark
 - [ ] Add a "DDP RGB" output of 4 LEDs aimed at the mill and run a WLED chase effect: the four pixels follow the WLED, LED 0 on the door lamp
 - [ ] Remove the DDP output: within 3 s the pixels go back to the WLED's sync colour
-- [ ] With the WLED on full white at full brightness, each pixel looks the same as when HA sets that light to white at 100% with no effect (the 60% cap holds)
+- [ ] With the WLED on full white at full brightness, each pixel looks the same as when HA sets that light to white at 100% with no effect (the cap holds: 60% on the door lamp and door glow, none on the windows)
+- [ ] Stream an amber WLED colour (255/150/60) over DDP: the windows show amber, not red, and as bright as HA white at 100% on those lights
 - [ ] Turn on "Disco Mode", then pick "WLED" on one light: disco ends and the other three take the lamplight look
 - [ ] Cut the power with "WLED" on: the mill comes back dark and stopped
 

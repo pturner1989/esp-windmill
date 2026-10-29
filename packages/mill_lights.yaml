@@ -8,8 +8,11 @@
 #   mill_door_lamp (light "Mill Door Lamp", pixel 0),
 #   mill_lamplight (script: the lamplight look on the lights in a mask).
 # Each light applies its own colour correction, not the strip's, so the 60%
-# cap is on the strip and on every light. The cap lists four values: with
-# only three, ESPHome leaves the white channel at 100%. Every pixel write goes
+# cap is on the strip and on the door lamp and door glow. The two window
+# lights have no cap (100%): they sit behind window masks, which take most of
+# their light (decided 2026-10-29). ESPHome applies the cap before gamma, so
+# 60% lets a capped light reach about 24% of full output. Each cap lists four
+# values: with only three, ESPHome leaves the white channel at 100%. Every pixel write goes
 # through one of the four lights. A light with no effect sends frames only
 # while it changes.
 # The three interior lights offer "Lamplight", an addressable_flicker. It
@@ -24,8 +27,9 @@
 # Every light offers "WLED". It calls mill_wled::render
 # (include/mill_wled_esphome.h) with the light's pixel number, which writes
 # only that light's own pixel with the colour the WLED package last received
-# for it, so the cap, gamma and the light's brightness apply. Before any
-# packet, the pixel is dark.
+# for it, so the cap, gamma and the light's brightness apply. The package
+# takes DDP colours back to linear first, because WLED already put its gamma
+# on them. Before any packet, the pixel is dark.
 
 light:
   - platform: esp32_rmt_led_strip
@@ -71,7 +75,7 @@ light:
       - id: mill_pixels
         from: 2
         to: 2
-    color_correct: [60%, 60%, 60%, 60%]
+    color_correct: [100%, 100%, 100%, 100%]
     restore_mode: ALWAYS_OFF
     default_transition_length: 3s
     effects:
@@ -95,7 +99,7 @@ light:
       - id: mill_pixels
         from: 3
         to: 3
-    color_correct: [60%, 60%, 60%, 60%]
+    color_correct: [100%, 100%, 100%, 100%]
     restore_mode: ALWAYS_OFF
     default_transition_length: 3s
     effects:

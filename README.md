@@ -187,8 +187,9 @@ three times a second: above 90 BPM the mill refuses 2× and HA shows 1×, and a 
 
 Every light offers a "WLED" effect, so the mill can follow a WLED device on the same network.
 Pick "WLED" on a light in HA, or on all four with a light group. The node always listens; a light shows
-what it hears only while "WLED" is its effect. Each light keeps its 60% cap and its own brightness,
-and the effect is never restored at boot.
+what it hears only while "WLED" is its effect. Each light keeps its cap and its own brightness,
+and the effect is never restored at boot. The door lamp and door glow are capped at 60%; the two
+windows have no cap, because their window masks take most of the light.
 
 Two ways to feed it, set up on the WLED device:
 
@@ -200,6 +201,8 @@ Two ways to feed it, set up on the WLED device:
   "DDP RGB" (or "DDP RGBW"), 4 LEDs long, with the mill's IP address. The WLED then streams its own
   effect to the mill: LED 0 to the Door Lamp, 1 to the Door Glow, 2 to the Stone Floor Window and 3 to
   the Bin Floor Window. If the stream stops for 2.5 s, the pixels go back to the sync colour (or dark).
+  WLED puts its "Color gamma" on the colours it streams, and the mill takes that back off, so the
+  pixels show what the WLED shows. Leave WLED's color gamma at 2.8, the default.
   The WLED UDP realtime protocols (WARLS, DRGB, DRGBW, DNRGB on port 21324, as sent by Hyperion and
   similar tools) work the same way, with the timeout the sender sets.
 
